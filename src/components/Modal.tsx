@@ -3,8 +3,8 @@ import type { ReactNode } from 'react'
 export function Modal({ title, onClose, children }: { title: string; onClose?: () => void; children: ReactNode }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-md max-h-[92dvh] overflow-y-auto rounded-t-3xl bg-card border-t border-line p-5 pb-8">
+      <div className="absolute inset-0 bg-black/60 fade-in" onClick={onClose} />
+      <div className="sheet-in relative w-full max-w-md max-h-[92dvh] overflow-y-auto rounded-t-3xl bg-card border-t border-line p-5 pb-8 card-shadow">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold">{title}</h3>
           {onClose && (

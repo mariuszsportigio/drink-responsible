@@ -1,3 +1,12 @@
+/** Light haptic tick where supported (Android Chrome; iOS ignores silently). */
+export function haptic(pattern: number | number[] = 12): void {
+  try {
+    navigator.vibrate?.(pattern)
+  } catch {
+    // unsupported — no-op
+  }
+}
+
 export function uid(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()

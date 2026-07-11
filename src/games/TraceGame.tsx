@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 
-const W = 320
 const H = 380
 const PATH_WIDTH = 46
 const TOLERANCE = PATH_WIDTH / 2
 const POINTS = 150
 
-function buildPath(): { x: number; y: number }[] {
+function buildPath(W: number): { x: number; y: number }[] {
   const pts: { x: number; y: number }[] = []
   for (let i = 0; i < POINTS; i++) {
     const t = i / (POINTS - 1)
@@ -20,7 +19,8 @@ function buildPath(): { x: number; y: number }[] {
 /** Drag a finger along the curve; value = accuracy% × coverage (0–100, higher = better). */
 export function TraceGame({ onFinish }: { onFinish: (value: number) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const ptsRef = useRef(buildPath())
+  const [W] = useState(() => Math.min(340, Math.max(280, window.innerWidth - 40)))
+  const ptsRef = useRef(buildPath(W))
   const run = useRef({ tracking: false, started: false, progress: 0, good: 0, bad: 0, finished: false })
   const [hint, setHint] = useState('Przyłóż palec do zielonego punktu i jedź po ścieżce')
 

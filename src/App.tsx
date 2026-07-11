@@ -12,11 +12,13 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('drink')
   return (
     <AppProvider>
-      <div className="mx-auto max-w-md min-h-dvh">
-        {tab === 'today' && <TodayScreen />}
-        {tab === 'habits' && <HabitsScreen />}
-        {tab === 'stats' && <StatsScreen />}
-        {tab === 'drink' && <DrinkScreen />}
+      <div className="mx-auto max-w-md min-h-dvh pt-[env(safe-area-inset-top)]">
+        <div key={tab} className="screen-in">
+          {tab === 'today' && <TodayScreen />}
+          {tab === 'habits' && <HabitsScreen />}
+          {tab === 'stats' && <StatsScreen />}
+          {tab === 'drink' && <DrinkScreen />}
+        </div>
         <TabBar tab={tab} onChange={setTab} />
         <CheckInManager />
         <PushSync />

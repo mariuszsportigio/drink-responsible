@@ -5,7 +5,8 @@ const MISS_PENALTY_MS = 50
 
 /** Tap appearing circles; value = avg reaction time in ms + penalty per miss (lower = better). */
 export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) {
-  const [phase, setPhase] = useState<'idle' | 'wait' | 'target'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'countdown' | 'wait' | 'target'>('idle')
+  const [count, setCount] = useState(3)
   const [times, setTimes] = useState<number[]>([])
   const [errors, setErrors] = useState(0)
   const [pos, setPos] = useState({ x: 50, y: 50 })
@@ -13,6 +14,20 @@ export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) 
   const timer = useRef<number | undefined>(undefined)
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  function startCountdown() {
+    setPhase('countdown')
+    setCount(3)
+    const tick = (n: number) => {
+      if (n === 0) {
+        scheduleTarget()
+        return
+      }
+      setCount(n)
+      timer.current = window.setTimeout(() => tick(n - 1), 650)
+    }
+    tick(3)
+  }
 
   function scheduleTarget() {
     setPhase('wait')
@@ -62,11 +77,16 @@ export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) 
             className="absolute inset-0 m-auto h-14 w-40 rounded-full bg-accent text-black font-bold"
             onPointerDown={(e) => {
               e.stopPropagation()
-              scheduleTarget()
+              startCountdown()
             }}
           >
             Start
           </button>
+        )}
+        {phase === 'countdown' && (
+          <p key={count} className="screen-in absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-6xl font-extrabold text-accent">
+            {count}
+          </p>
         )}
         {phase === 'wait' && (
           <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-muted">Czekaj…</p>

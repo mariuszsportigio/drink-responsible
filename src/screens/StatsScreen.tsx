@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -12,7 +14,8 @@ import {
   YAxis,
 } from 'recharts'
 import { useAppState } from '../state/store'
-import { totalUnits, formatUnits } from '../lib/alcohol'
+import { estimatePermille, totalUnits, formatUnits } from '../lib/alcohol'
+import { alcoholFreeDays, questDef } from '../lib/quests'
 import { addDays, dateStr, formatClock, formatDate, formatDuration, streakOf } from '../lib/util'
 import type { DrinkSession } from '../lib/types'
 
@@ -55,9 +58,26 @@ export function StatsScreen() {
   const lastSession = allSessions[allSessions.length - 1]
   const formSeries = lastSession?.checkIns.map((c) => ({ t: formatClock(c.ts), forma: c.formPct })) ?? []
 
+  // permille curve of the last session: sampled Widmark estimate + projected burn-down to ~zero
+  const permilleSeries = useMemo(() => {
+    if (!lastSession || !state.profile || lastSession.drinks.length === 0) return []
+    const start = lastSession.startedAt
+    const endAnchor = lastSession.endedAt ?? Date.now()
+    const permilleAtEnd = estimatePermille(lastSession.drinks, state.profile, endAnchor)
+    const end = endAnchor + Math.max(30, (permilleAtEnd / 0.15) * 60 + 15) * 60_000
+    if (end <= start) return []
+    const SAMPLES = 48
+    return Array.from({ length: SAMPLES + 1 }, (_, i) => {
+      const t = start + ((end - start) * i) / SAMPLES
+      return {
+        t: formatClock(t),
+        promile: Math.round(estimatePermille(lastSession.drinks, state.profile!, t) * 100) / 100,
+      }
+    })
+  }, [lastSession, state.profile])
+
   const mitStreak = streakOf(state.mits.filter((m) => m.doneAt).map((m) => m.date))
-  const today = dateStr()
-  const habitsDone = state.habits.filter((h) => h.doneDates.includes(today)).length
+  const dryDays = alcoholFreeDays(allSessions)
 
   return (
     <div className="px-5 pt-6 pb-32">
@@ -70,7 +90,7 @@ export function StatsScreen() {
         <Tile value={formatUnits(weekUnits)} label="jednostek (7 dni)" />
         <Tile value={String(allSessions.filter((s) => s.startedAt >= Date.now() - 30 * 24 * 3_600_000).length)} label="sesji (30 dni)" />
         <Tile value={`🔥 ${mitStreak}`} label="streak MIT" />
-        <Tile value={`${habitsDone}/${state.habits.length || '—'}`} label="nawyki dziś" />
+        <Tile value={`🌿 ${dryDays ?? '—'}`} label="dni bez alkoholu" />
       </div>
 
       <Section title="Jednostki alkoholu — 14 dni">
@@ -84,6 +104,38 @@ export function StatsScreen() {
           </BarChart>
         </ResponsiveContainer>
       </Section>
+
+      {permilleSeries.length > 1 && (
+        <Section title={`Promile w czasie — ${lastSession.endedAt ? 'ostatnia sesja' : 'aktywna sesja'}`}>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={permilleSeries} margin={{ top: 5, right: 5, left: -28, bottom: 0 }}>
+              <defs>
+                <linearGradient id="permilleFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F5A524" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#F5A524" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#232B27" vertical={false} />
+              <XAxis dataKey="t" tick={TICK} tickLine={false} axisLine={false} interval={Math.floor(permilleSeries.length / 5)} />
+              <YAxis tick={TICK} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}‰`, 'promile']} />
+              <ReferenceLine y={0.5} stroke="#F87171" strokeDasharray="4 4" />
+              <Area
+                type="monotone"
+                dataKey="promile"
+                stroke="#F5A524"
+                strokeWidth={2.5}
+                fill="url(#permilleFill)"
+                dot={false}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          <p className="text-[10px] text-muted/70 mt-1">
+            czerwona linia: 0,5‰ · ogon za końcem sesji = projekcja spalania · szacunek Widmarka, orientacyjnie
+          </p>
+        </Section>
+      )}
 
       {formSeries.length > 1 && (
         <Section title={`Forma w czasie — ${lastSession.endedAt ? 'ostatnia sesja' : 'aktywna sesja'}`}>
@@ -108,17 +160,33 @@ export function StatsScreen() {
             {[...allSessions].reverse().slice(0, 10).map((s) => {
               const minForm = s.checkIns.length ? Math.min(...s.checkIns.map((c) => c.formPct)) : undefined
               return (
-                <div key={s.id} className="flex items-center gap-3 rounded-xl bg-card border border-line px-4 py-3 text-sm">
-                  <span className="text-muted">{formatDate(s.startedAt)}</span>
-                  <span className="flex-1">
-                    {formatUnits(totalUnits(s.drinks))} j. · {s.water.length}💧 ·{' '}
-                    {formatDuration((s.endedAt ?? Date.now()) - s.startedAt)}
-                  </span>
-                  {!s.endedAt && <span className="text-mint text-xs font-bold">AKTYWNA</span>}
-                  {minForm != null && (
-                    <span className={minForm >= 85 ? 'text-mint' : minForm >= 70 ? 'text-accent' : 'text-danger'}>
-                      min {minForm}%
+                <div key={s.id} className="rounded-xl bg-card border border-line px-4 py-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted">{formatDate(s.startedAt)}</span>
+                    <span className="flex-1">
+                      {formatUnits(totalUnits(s.drinks))} j. · {s.water.length}💧 ·{' '}
+                      {formatDuration((s.endedAt ?? Date.now()) - s.startedAt)}
                     </span>
+                    {!s.endedAt && <span className="text-mint text-xs font-bold">AKTYWNA</span>}
+                    {minForm != null && (
+                      <span className={minForm >= 85 ? 'text-mint' : minForm >= 70 ? 'text-accent' : 'text-danger'}>
+                        min {minForm}%
+                      </span>
+                    )}
+                  </div>
+                  {(s.quests?.length ?? 0) > 0 && s.endedAt && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {s.quests!.map((q) => (
+                        <span
+                          key={q.id}
+                          className={`rounded-full border px-2.5 py-0.5 text-[11px] ${
+                            q.done ? 'border-mint/40 text-mint bg-mint/5' : 'border-danger/40 text-danger bg-danger/5'
+                          }`}
+                        >
+                          {questDef(q.id).icon} {questDef(q.id).title(q.target)} {q.done ? '✓' : '✗'}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
               )

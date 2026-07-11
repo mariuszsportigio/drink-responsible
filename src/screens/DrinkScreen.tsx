@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useAppDispatch, useAppState } from '../state/store'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { sanitizeImportedState, useAppDispatch, useAppState } from '../state/store'
 import { QUICK_DRINKS, estimatePermille, formatPermille, formatUnits, totalUnits, unitsOf, waterDeficit } from '../lib/alcohol'
 import { GAME_KINDS, GAME_META, baselineComplete, baselineStale, formPct } from '../lib/games'
 import { coachLine, coachSummary, formatEta } from '../lib/coach'
 import { QUEST_DEFS, alcoholFreeDays, evaluateQuests, questDef } from '../lib/quests'
 import type { GameKind, Sex, SessionQuest } from '../lib/types'
-import { formatClock, formatDuration, median } from '../lib/util'
+import { formatClock, formatDuration, haptic, median, uid } from '../lib/util'
 import { GameHost, type GameResult } from '../games/GameHost'
 import { Ring } from '../components/Ring'
 import { Modal } from '../components/Modal'
@@ -38,6 +38,21 @@ export function DrinkScreen() {
   const [showQuestPick, setShowQuestPick] = useState(false)
   const [showEndSummary, setShowEndSummary] = useState(false)
   const [practice, setPractice] = useState<GameResult | null>(null)
+  const [toast, setToast] = useState<{ msg: string; undoId?: string } | null>(null)
+  const toastTimer = useRef<number | undefined>(undefined)
+
+  function showToast(msg: string, undoId?: string) {
+    window.clearTimeout(toastTimer.current)
+    setToast({ msg, undoId })
+    toastTimer.current = window.setTimeout(() => setToast(null), 3500)
+  }
+
+  function quickAdd(label: string, volumeMl: number, abv: number) {
+    const id = uid()
+    dispatch({ type: 'addDrink', label, volumeMl, abv, id })
+    haptic()
+    showToast(`${label} ${volumeMl} ml · +${formatUnits(unitsOf(volumeMl, abv))} j.`, id)
+  }
 
   const hasProfile = !!state.profile
   const hasBaseline = baselineComplete(state.baseline)
@@ -140,7 +155,9 @@ export function DrinkScreen() {
           </div>
 
           <div className="flex items-center gap-5">
-            <Ring pct={lastCheck?.formPct} />
+            <div className={lastCheck ? 'ring-glow' : ''}>
+              <Ring pct={lastCheck?.formPct} />
+            </div>
             <div className="grid grid-cols-2 gap-x-5 gap-y-3 flex-1">
               <div>
                 <p className="text-2xl font-extrabold leading-none">{formatUnits(units)}</p>
@@ -232,7 +249,7 @@ export function DrinkScreen() {
               <button
                 key={`${d.label}-${d.volumeMl}`}
                 className="flex items-center gap-3 rounded-2xl bg-card border border-line p-4 text-left active:bg-card2"
-                onClick={() => dispatch({ type: 'addDrink', label: d.label, volumeMl: d.volumeMl, abv: d.abv })}
+                onClick={() => quickAdd(d.label, d.volumeMl, d.abv)}
               >
                 <span className="text-2xl">{d.icon}</span>
                 <span className="flex-1">
@@ -248,7 +265,11 @@ export function DrinkScreen() {
           <div className="grid grid-cols-[1fr_auto] gap-3 mb-6">
             <button
               className="h-12 rounded-2xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold"
-              onClick={() => dispatch({ type: 'addWater' })}
+              onClick={() => {
+                dispatch({ type: 'addWater' })
+                haptic()
+                showToast('💧 Szklanka wody dopisana')
+              }}
             >
               💧 + Szklanka wody
             </button>
@@ -337,6 +358,23 @@ export function DrinkScreen() {
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showQuestPick && <QuestPickModal onClose={() => setShowQuestPick(false)} />}
       {showEndSummary && session && <EndSummaryModal onClose={() => setShowEndSummary(false)} />}
+
+      {toast && (
+        <div className="toast-in fixed bottom-24 left-1/2 z-50 flex items-center gap-3 rounded-full bg-card2 border border-line px-5 py-3 text-sm card-shadow whitespace-nowrap">
+          <span>{toast.msg}</span>
+          {toast.undoId && (
+            <button
+              className="font-bold text-accent"
+              onClick={() => {
+                dispatch({ type: 'removeDrink', id: toast.undoId! })
+                setToast(null)
+              }}
+            >
+              Cofnij
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -715,6 +753,50 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           Powiadomienia lokalne działają, gdy apka jest otwarta lub zainstalowana na ekranie głównym (Android). Na
           iOS dodaj apkę do ekranu głównego — w otwartej apce check-in i tak wyskoczy jako modal.
         </p>
+
+        <div className="border-t border-line pt-4">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-3">Dane</p>
+          <div className="flex gap-3">
+            <button
+              className="flex-1 h-11 rounded-xl bg-card2 border border-line text-sm font-medium"
+              onClick={() => {
+                const blob = new Blob([localStorage.getItem('drink-tracker/v1') ?? '{}'], { type: 'application/json' })
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(blob)
+                a.download = `drink-responsible-backup-${new Date().toISOString().slice(0, 10)}.json`
+                a.click()
+                URL.revokeObjectURL(a.href)
+              }}
+            >
+              ⬇️ Eksport JSON
+            </button>
+            <label className="flex-1 h-11 rounded-xl bg-card2 border border-line text-sm font-medium flex items-center justify-center cursor-pointer">
+              ⬆️ Import JSON
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const imported = sanitizeImportedState(JSON.parse(await file.text()))
+                    if (!imported) throw new Error('bad shape')
+                    if (confirm('Nadpisać WSZYSTKIE obecne dane danymi z backupu?')) {
+                      dispatch({ type: 'importState', state: imported })
+                      onClose()
+                    }
+                  } catch {
+                    alert('Ten plik nie wygląda na backup Drink Responsible.')
+                  } finally {
+                    e.target.value = ''
+                  }
+                }}
+              />
+            </label>
+          </div>
+          <p className="text-[10px] text-muted/70 mt-2">Dane żyją tylko w tej przeglądarce — rób backup przed czyszczeniem.</p>
+        </div>
       </div>
     </Modal>
   )

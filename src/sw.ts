@@ -5,7 +5,10 @@ import { NavigationRoute, registerRoute } from 'workbox-routing'
 
 declare let self: ServiceWorkerGlobalScope
 
-self.skipWaiting()
+// prompt-mode updates: the page shows a toast and posts SKIP_WAITING when the user accepts
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting()
+})
 clientsClaim()
 
 precacheAndRoute(self.__WB_MANIFEST)

@@ -12,7 +12,7 @@ export type Action =
   | { type: 'startSession'; quests: SessionQuest[] }
   | { type: 'endSession' }
   | { type: 'setAlcoholFreeTarget'; days?: number }
-  | { type: 'addDrink'; label: string; volumeMl: number; abv: number; ts?: number }
+  | { type: 'addDrink'; label: string; volumeMl: number; abv: number; ts?: number; id?: string }
   | { type: 'removeDrink'; id: string }
   | { type: 'addWater' }
   | { type: 'recordCheckIn'; checkIn: CheckIn }
@@ -22,6 +22,7 @@ export type Action =
   | { type: 'removeHabit'; id: string }
   | { type: 'toggleHabit'; id: string }
   | { type: 'setSettings'; settings: Partial<Settings> }
+  | { type: 'importState'; state: AppState }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -46,7 +47,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'addDrink': {
       if (!state.activeSession) return state
       const drink = {
-        id: uid(),
+        id: action.id ?? uid(),
         ts: action.ts ?? Date.now(),
         label: action.label,
         volumeMl: action.volumeMl,
@@ -117,7 +118,17 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'setSettings':
       return { ...state, settings: { ...state.settings, ...action.settings } }
+    case 'importState':
+      return action.state
   }
+}
+
+/** Merge an untrusted parsed backup into a valid AppState (same rules as load()). */
+export function sanitizeImportedState(parsed: unknown): AppState | null {
+  if (typeof parsed !== 'object' || parsed === null) return null
+  const p = parsed as Partial<AppState>
+  if (!Array.isArray(p.pastSessions ?? []) || !Array.isArray(p.mits ?? []) || !Array.isArray(p.habits ?? [])) return null
+  return { ...initialState, ...p, settings: { ...initialState.settings, ...p.settings } }
 }
 
 function load(): AppState {
