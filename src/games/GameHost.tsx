@@ -6,7 +6,7 @@ import { GAME_META } from '../lib/games'
 import { GAME_ICONS } from '../components/icons'
 import { useLockBodyScroll } from '../lib/useLockBodyScroll'
 import { ReflexGame } from './ReflexGame'
-import { TraceGame } from './TraceGame'
+import { TrailGame } from './TrailGame'
 import { MemoryGame } from './MemoryGame'
 
 export interface GameResult {
@@ -17,7 +17,8 @@ export interface GameResult {
 const INSTRUCTIONS: Record<GameKind, string> = {
   reflex:
     'Światła jak na starcie wyścigu: czerwone = czekaj, zielone = TAP natychmiast. W trybie PRO trafiasz w to jedno pole, które się zapali. 5 rund; falstart i pudło = kara czasowa.',
-  trace: 'Przeciągnij palcem od zielonego punktu do pomarańczowego, trzymając się szarej ścieżki.',
+  trace:
+    'Trail Making Test — klasyk z badań nad trzeźwością. Stukaj kółka na zmianę cyfra→litera: 1 → A → 2 → B → 3 → C… jak najszybciej. Każda pomyłka to +1 s kary.',
   memory: 'Zapamiętaj sekwencję podświetlanych pól i powtórz ją. Sekwencja rośnie do 8.',
 }
 
@@ -101,7 +102,7 @@ export function GameHost({
         ) : (
           <>
             {kind === 'reflex' && <ReflexGame onFinish={handleGameFinish} />}
-            {kind === 'trace' && <TraceGame onFinish={handleGameFinish} />}
+            {kind === 'trace' && <TrailGame onFinish={handleGameFinish} />}
             {kind === 'memory' && <MemoryGame onFinish={handleGameFinish} />}
           </>
         )}

@@ -1,9 +1,9 @@
-import { Brain, Droplets, Route, Target, Turtle, Zap, type LucideIcon } from 'lucide-react'
+import { Brain, Droplets, Target, Turtle, Waypoints, Zap, type LucideIcon } from 'lucide-react'
 import type { GameKind, QuestId } from '../lib/types'
 
 export const GAME_ICONS: Record<GameKind, LucideIcon> = {
   reflex: Zap,
-  trace: Route,
+  trace: Waypoints,
   memory: Brain,
 }
 

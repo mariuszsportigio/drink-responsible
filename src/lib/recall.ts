@@ -26,14 +26,27 @@ export function buildRecallChips(words: string[], total = 9): string[] {
   return shuffled([...words, ...distractors])
 }
 
-/** Positions matched exactly (order counts). */
-export function gradeRecall(picked: string[], words: string[]): number {
-  return words.reduce((score, w, i) => score + (picked[i] === w ? 1 : 0), 0)
+export type RecallSlot = 'exact' | 'misplaced' | 'miss'
+
+/** Per-slot verdict: right word in the right place / right word wrong place / wrong word. */
+export function gradeRecallSlots(picked: string[], words: string[]): RecallSlot[] {
+  return words.map((w, i) => (picked[i] === w ? 'exact' : words.includes(picked[i]) ? 'misplaced' : 'miss'))
 }
 
-export function recallComment(correct: number, total: number): string {
-  if (correct === total) return 'Pamięć jak sejf. 🔒'
-  if (correct >= total - 1) return 'Prawie komplet — jeszcze kontaktujesz. 👌'
-  if (correct >= 1) return 'Luki w pamięci rosną. Uważaj, bo zaczniesz powtarzać te same historie. 😬'
+/** 1 pkt per exact position, 0.5 pkt for a target word in the wrong slot (max = words.length). */
+export function gradeRecall(picked: string[], words: string[]): number {
+  return gradeRecallSlots(picked, words).reduce((s, v) => s + (v === 'exact' ? 1 : v === 'misplaced' ? 0.5 : 0), 0)
+}
+
+/** "2.5" → "2,5" for Polish UI. */
+export function formatRecallScore(score: number): string {
+  return String(score).replace('.', ',')
+}
+
+export function recallComment(score: number, total: number): string {
+  if (score === total) return 'Pamięć jak sejf. 🔒'
+  if (score >= total - 1) return 'Prawie komplet — jeszcze kontaktujesz. 👌'
+  if (score >= 1) return 'Luki w pamięci rosną. Uważaj, bo zaczniesz powtarzać te same historie. 😬'
+  if (score > 0) return 'Coś tam świta, ale kolejność odpłynęła w siną dal. 🌊'
   return 'Zero z trzech. Godzinę temu też Ci się wydawało, że wszystko pamiętasz. 💀'
 }

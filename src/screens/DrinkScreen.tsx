@@ -8,6 +8,7 @@ import { coachLine, coachSummary, formatEta } from '../lib/coach'
 import { QUEST_DEFS, alcoholFreeDays, evaluateQuests, questDef } from '../lib/quests'
 import type { DrinkSession, GameKind, Sex, SessionQuest } from '../lib/types'
 import { formatClock, formatDate, formatDuration, haptic, median, uid } from '../lib/util'
+import { formatRecallScore } from '../lib/recall'
 import {
   Activity,
   Check,
@@ -680,7 +681,7 @@ function SessionTimeline({ session, now }: { session: DrinkSession; now: number 
       key: `check-${i}`,
       icon: <Activity size={13} className="text-accent" />,
       text: `Check-in: ${GAME_META[c.kind].name} → ${c.formPct}% formy`,
-      sub: c.recall ? `pamięć odroczona ${c.recall.correct}/${c.recall.total}` : undefined,
+      sub: c.recall ? `pamięć odroczona ${formatRecallScore(c.recall.correct)}/${c.recall.total}` : undefined,
     })),
   ].sort((a, b) => b.ts - a.ts)
 
@@ -1270,7 +1271,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             onClick={() => {
               dispatch({
                 type: 'setBaseline',
-                baseline: { reflex: 320, trace: 82, memory: 6, calibratedAt: Date.now() },
+                baseline: { reflex: 320, trace: 13000, memory: 6, calibratedAt: Date.now() },
               })
               if (!state.profile) dispatch({ type: 'setProfile', profile: { weightKg: 80, sex: 'male' } })
               onClose()

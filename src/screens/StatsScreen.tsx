@@ -59,7 +59,7 @@ export function StatsScreen() {
       const worst = s.worstIndex ?? (state.profile ? sessionWorstIndex(s, state.profile) : 50)
       byDay.set(key, Math.min(byDay.get(key) ?? 100, worst))
     }
-    return [...byDay.values()].filter((w) => w >= 65).length
+    return [...byDay.values()].filter((w) => w >= 58).length
   }, [state.pastSessions, state.profile])
 
   const lastSession = allSessions[allSessions.length - 1]

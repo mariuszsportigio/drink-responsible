@@ -3,7 +3,7 @@ import { useAppDispatch, useAppState } from '../state/store'
 import { baselineComplete, formPct, randomGame, GAME_META } from '../lib/games'
 import type { GameKind } from '../lib/types'
 import { QUICK_DRINKS, formatUnits, totalUnits, unitsOf } from '../lib/alcohol'
-import { buildRecallChips, gradeRecall, pickMemoWords, recallComment } from '../lib/recall'
+import { buildRecallChips, formatRecallScore, gradeRecall, gradeRecallSlots, pickMemoWords, recallComment } from '../lib/recall'
 import { notify } from '../lib/notify'
 import { haptic } from '../lib/util'
 import { AlarmClock, Beer, Brain, Check, Droplets } from 'lucide-react'
@@ -155,16 +155,19 @@ function RecallQuiz({ words, onDone }: { words: string[]; onDone: (correct: numb
   }
 
   function grade() {
-    const correct = gradeRecall(picked, words)
-    setGraded(correct)
-    haptic(correct === words.length ? [15, 50, 15] : 40)
-    window.setTimeout(() => onDone(correct, words.length), 1600)
+    const score = gradeRecall(picked, words)
+    setGraded(score)
+    haptic(score === words.length ? [15, 50, 15] : 40)
+    window.setTimeout(() => onDone(score, words.length), 1600)
   }
+
+  const slots = graded != null ? gradeRecallSlots(picked, words) : null
 
   return (
     <Modal title="Co miałeś zapamiętać?" icon={<Brain size={16} className="text-aqua" />}>
       <p className="text-sm text-muted mb-4">
-        Wybierz {words.length} słowa z ostatniego check-inu — <span className="text-white/80">kolejność się liczy</span>.
+        Wybierz {words.length} słowa z ostatniego check-inu.{' '}
+        <span className="text-white/80">1 pkt za dobre miejsce, 0,5 pkt za samo słowo</span> w złej kolejności.
       </p>
 
       <div className="flex gap-2 mb-4 min-h-11">
@@ -172,17 +175,19 @@ function RecallQuiz({ words, onDone }: { words: string[]; onDone: (correct: numb
           <button
             key={i}
             className={`flex-1 h-11 rounded-xl border text-sm font-bold ${
-              graded != null
-                ? picked[i] === words[i]
+              slots
+                ? slots[i] === 'exact'
                   ? 'bg-mint/15 border-mint/50 text-mint'
-                  : 'bg-danger/10 border-danger/50 text-danger line-through'
+                  : slots[i] === 'misplaced'
+                    ? 'bg-accent/10 border-accent/50 text-accent'
+                    : 'bg-danger/10 border-danger/50 text-danger line-through'
                 : picked[i]
                   ? 'bg-card2 border-accent/50'
                   : 'bg-black/25 border-line border-dashed text-muted'
             }`}
             onClick={() => picked[i] && graded == null && toggle(picked[i])}
           >
-            {graded != null && picked[i] !== words[i] ? words[i] : (picked[i] ?? `${i + 1}.`)}
+            {slots && slots[i] === 'miss' ? words[i] : (picked[i] ?? `${i + 1}.`)}
           </button>
         ))}
       </div>
@@ -215,7 +220,8 @@ function RecallQuiz({ words, onDone }: { words: string[]; onDone: (correct: numb
         </button>
       ) : (
         <p className="screen-in text-center text-sm font-bold">
-          {graded}/{words.length} · <span className="text-muted font-normal">{recallComment(graded, words.length)}</span>
+          {formatRecallScore(graded)}/{words.length} ·{' '}
+          <span className="text-muted font-normal">{recallComment(graded, words.length)}</span>
         </p>
       )}
     </Modal>
@@ -261,7 +267,8 @@ function ConfessionSheet({
       {recallResult && (
         <div className="rounded-2xl bg-card2 border border-line p-4 mb-3 text-sm flex items-center justify-between">
           <span className="text-muted">
-            Pamięć odroczona: <span className="text-white font-bold">{recallResult.correct}/{recallResult.total}</span>
+            Pamięć odroczona:{' '}
+            <span className="text-white font-bold">{formatRecallScore(recallResult.correct)}/{recallResult.total}</span>
           </span>
           <span
             className={`font-bold ${

@@ -48,11 +48,11 @@ export function coachLine(ctx: CoachCtx): string {
     kcal: ctx.kcal,
   }
 
-  if (ctx.strongRecentUnits >= 1.2 && ctx.permille >= 0.3) return pick(OVERLAY_SPIKE, seed)(c)
+  if (ctx.strongRecentUnits >= 1.8 && ctx.permille >= 0.5) return pick(OVERLAY_SPIKE, seed)(c)
   if (ctx.recall && ctx.recall.total >= 3 && ctx.recall.correct <= 1 && zone !== 'clean' && zone !== 'critical') {
     return pick(OVERLAY_RECALL_FAIL, seed)(c)
   }
-  if (!ctx.fedRecently && ctx.units > 3 && zone !== 'critical' && bucket % 3 === 0) return pick(OVERLAY_NO_FOOD, seed)(c)
+  if (!ctx.fedRecently && ctx.units > 4 && zone !== 'critical' && bucket % 3 === 0) return pick(OVERLAY_NO_FOOD, seed)(c)
 
   return pick(ZONE_LINES[zone], seed)(c)
 }
@@ -60,9 +60,9 @@ export function coachLine(ctx: CoachCtx): string {
 /** Closing line for the end-of-session summary. */
 export function coachSummary(units: number, questsDone: number, questsTotal: number, worstIndex?: number): string {
   if (units === 0) return 'Sesja bez alkoholu — to się liczy do streaka. Szacun.'
-  if (worstIndex != null && worstIndex >= 80) return `Party Index nie spadł poniżej ${worstIndex} — wieczór wzorcowy. Tak wygląda plan zrealizowany w 100%.`
+  if (worstIndex != null && worstIndex >= 75) return `Party Index nie spadł poniżej ${worstIndex} — wieczór wzorcowy. Tak wygląda plan zrealizowany w 100%.`
   if (questsTotal > 0 && questsDone === questsTotal) return `Wszystkie questy zaliczone (${questsDone}/${questsTotal}). Plan > impuls. Dokładnie tak.`
-  if (worstIndex != null && worstIndex < 40) return `W najgorszym momencie index spadł do ${worstIndex}. Bez oceniania — ale jutro rzuć okiem na wykres i wyciągnij jeden wniosek.`
+  if (worstIndex != null && worstIndex < 35) return `W najgorszym momencie index spadł do ${worstIndex}. Bez oceniania — ale jutro rzuć okiem na wykres i wyciągnij jeden wniosek.`
   if (questsTotal > 0 && questsDone === 0) return `Questy 0/${questsTotal}. Nie tragedia, ale dane nie kłamią — następnym razem postaw niższy próg i go dowieź.`
   if (questsTotal > 0) return `Questy ${questsDone}/${questsTotal}. Częściowa kontrola to wciąż kontrola — jutro spójrz na wykres i wyciągnij wnioski.`
   if (units <= 4) return 'Umiarkowanie i z pomiarem. Więcej takich sesji.'

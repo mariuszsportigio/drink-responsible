@@ -9,11 +9,11 @@ export const GAME_META: Record<GameKind, { name: string; icon: string; unit: str
     describe: (v) => `${Math.round(v)} ms`,
   },
   trace: {
-    name: 'Koordynacja',
-    icon: '🛣️',
-    unit: '%',
-    lowerIsBetter: false,
-    describe: (v) => `${Math.round(v)}%`,
+    name: 'Percepcja',
+    icon: '🔢',
+    unit: 's',
+    lowerIsBetter: true,
+    describe: (v) => `${(v / 1000).toFixed(1)} s`,
   },
   memory: {
     name: 'Pamięć',

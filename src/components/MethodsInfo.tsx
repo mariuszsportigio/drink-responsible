@@ -1,4 +1,4 @@
-import { Brain, FlaskConical, Info, Route, Type, Zap, type LucideIcon } from 'lucide-react'
+import { Brain, FlaskConical, Info, Type, Waypoints, Zap, type LucideIcon } from 'lucide-react'
 import { Modal } from './Modal'
 
 const METHODS: { Icon: LucideIcon; name: string; what: string; pros: string; cons: string }[] = [
@@ -10,11 +10,11 @@ const METHODS: { Icon: LucideIcon; name: string; what: string; pros: string; con
     cons: 'Efekt uczenia (pierwsze podejścia są wolniejsze), wynik zależy też od skupienia i tego, czy telefon leży czy jest w dłoni.',
   },
   {
-    Icon: Route,
-    name: 'Koordynacja (ścieżka)',
-    what: 'Prowadzisz palec po krętej ścieżce od startu do mety. Wynik = trafienie w ścieżkę × pokrycie trasy.',
-    pros: 'Motoryka precyzyjna oko–ręka — najbliżej realnych upośledzeń (pismo, chód, wkładanie klucza do zamka).',
-    cons: 'Wrażliwy na pozycję ciała i rozmiar ekranu; rób go zawsze w podobnych warunkach.',
+    Icon: Waypoints,
+    name: 'Percepcja (Trail Making)',
+    what: 'Stukasz kółka na zmianę cyfra→litera (1→A→2→B…). Wynik = czas ukończenia + 1 s kary za pomyłkę.',
+    pros: 'Trail Making Test to neuropsychologiczny klasyk (od 1944): skanowanie wzrokowe i podzielność uwagi siadają po alkoholu jako jedne z pierwszych — dokładnie to, co psuje ocenę sytuacji na mieście.',
+    cons: 'Efekt uczenia układu przy częstym graniu (układ kółek jest losowy, ale strategia się wyrabia). Wynik zależy też od pośpiechu — graj zawsze „na maksa".',
   },
   {
     Icon: Brain,
@@ -26,9 +26,9 @@ const METHODS: { Icon: LucideIcon; name: string; what: string; pros: string; con
   {
     Icon: Type,
     name: 'Pamięć odroczona (słowa)',
-    what: 'Na koniec check-inu dostajesz 3 słowa. Przy następnym (30–90 min później) wybierasz je z 9 chipów — w kolejności.',
+    what: 'Na koniec check-inu dostajesz 3 słowa. Przy następnym (30–90 min później) wybierasz je z 9 chipów: 1 pkt za słowo na dobrym miejscu, 0,5 pkt za samo słowo w złej kolejności (max 3).',
     pros: 'Najbardziej „życiowy" test: sprawdza to samo, co pamiętanie rozmów sprzed godziny. Alkohol mocno uderza w konsolidację pamięci — zanim czujesz, że coś jest nie tak.',
-    cons: 'Tylko 4 poziomy wyniku (0–3), pojedynczy zły wynik może być przypadkiem. Patrz na trend, nie na jedną próbę.',
+    cons: 'Mało poziomów wyniku (0–3 co pół punktu), pojedynczy zły wynik może być przypadkiem. Patrz na trend, nie na jedną próbę.',
   },
   {
     Icon: FlaskConical,

@@ -150,10 +150,18 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
+/** Old trace baseline was a 0–100% path-tracing score; the trail-making test stores ms. Force recalibration. */
+function migrate(p: Partial<AppState>): Partial<AppState> {
+  if (p.baseline?.trace != null && p.baseline.trace <= 200) {
+    return { ...p, baseline: { ...p.baseline, trace: undefined, calibratedAt: undefined } }
+  }
+  return p
+}
+
 /** Merge an untrusted parsed backup into a valid AppState (same rules as load()). */
 export function sanitizeImportedState(parsed: unknown): AppState | null {
   if (typeof parsed !== 'object' || parsed === null) return null
-  const p = parsed as Partial<AppState>
+  const p = migrate(parsed as Partial<AppState>)
   if (!Array.isArray(p.pastSessions ?? []) || !Array.isArray(p.mits ?? []) || !Array.isArray(p.habits ?? [])) return null
   return { ...initialState, ...p, settings: { ...initialState.settings, ...p.settings } }
 }
@@ -162,7 +170,7 @@ function load(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return initialState
-    const parsed = JSON.parse(raw) as Partial<AppState>
+    const parsed = migrate(JSON.parse(raw) as Partial<AppState>)
     return { ...initialState, ...parsed, settings: { ...initialState.settings, ...parsed.settings } }
   } catch {
     return initialState

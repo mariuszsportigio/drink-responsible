@@ -10,7 +10,7 @@ export type GameKind = 'reflex' | 'trace' | 'memory'
 export interface Baseline {
   /** median reaction time in ms (lower = better) */
   reflex?: number
-  /** median trace score 0-100 (higher = better) */
+  /** median trail-making completion time in ms (lower = better) */
   trace?: number
   /** median completed sequence length (higher = better) */
   memory?: number
@@ -45,7 +45,7 @@ export interface CheckIn {
   kind: GameKind
   value: number
   formPct: number
-  /** delayed-recall quiz result (words remembered from the previous check-in) */
+  /** delayed-recall quiz result: 1 pkt exact position + 0.5 pkt word in wrong slot */
   recall?: { correct: number; total: number }
 }
 
