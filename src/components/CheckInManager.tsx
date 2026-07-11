@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppDispatch, useAppState } from '../state/store'
 import { baselineComplete, formPct, randomGame, GAME_META } from '../lib/games'
 import type { GameKind } from '../lib/types'
 import { QUICK_DRINKS, formatUnits, totalUnits, unitsOf } from '../lib/alcohol'
 import { buildRecallChips, formatRecallScore, gradeRecall, gradeRecallSlots, pickMemoWords, recallComment } from '../lib/recall'
 import { notify } from '../lib/notify'
-import { haptic } from '../lib/util'
-import { AlarmClock, Beer, Brain, Check, Droplets } from 'lucide-react'
+import { haptic, uid } from '../lib/util'
+import { AlarmClock, Beer, Brain, Check, ChevronDown, Droplets, Plus, Utensils } from 'lucide-react'
 import { GameHost } from '../games/GameHost'
 import { Modal } from '../components/Modal'
+import { AddDrinkSheet, type AddSheetKind } from '../components/AddDrinkSheet'
 
 /**
  * Watches the active session and fires an hourly check-in:
@@ -245,13 +247,57 @@ function ConfessionSheet({
   const recallOn = state.settings.memoRecallEnabled
   const newWords = useMemo(() => (recallOn ? pickMemoWords() : undefined), [recallOn])
 
+  const [addSheet, setAddSheet] = useState<AddSheetKind | null>(null)
+  const [foodOpen, setFoodOpen] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(toastTimer.current), [])
+
+  function showToast(msg: string) {
+    window.clearTimeout(toastTimer.current)
+    setToast(msg)
+    toastTimer.current = window.setTimeout(() => setToast(null), 3000)
+  }
+
+  function addDrinkFromSheet(
+    label: string,
+    volumeMl: number,
+    abv: number,
+    opts?: { spreadMin?: number; ts?: number; note?: string },
+  ) {
+    dispatch({ type: 'addDrink', label, volumeMl, abv, id: uid(), spreadMin: opts?.spreadMin, ts: opts?.ts })
+    haptic()
+    showToast(`✅ ${label} ${volumeMl} ml · +${formatUnits(unitsOf(volumeMl, abv))} j.${opts?.note ? ` · ${opts.note}` : ''}`)
+  }
+
+  function addFood(kind: 'snack' | 'meal') {
+    dispatch({ type: 'addFood', kind })
+    haptic()
+    setFoodOpen(false)
+    showToast(kind === 'meal' ? '🍔 Posiłek dodany — index to doceni' : '🥜 Przekąska dodana')
+  }
+
   const pct = gameValue != null ? formPct(kind, gameValue, state.baseline) : undefined
   const hourAgo = Date.now() - 3_600_000
   const lastHourDrinks = session.drinks.filter((d) => d.ts >= hourAgo)
   const lastHourWater = session.water.filter((w) => w.ts >= hourAgo)
 
+  // Same drink flow as the main screen: picking a drink opens the timing sheet
+  // (sipping pace / "X min temu") so the timeline stays meaningful.
+  if (addSheet) {
+    return <AddDrinkSheet sheet={addSheet} onAdd={addDrinkFromSheet} onClose={() => setAddSheet(null)} />
+  }
+
   return (
     <Modal title="Spowiedź — ostatnia godzina" icon={<Beer size={16} className="text-accent" />}>
+      {toast &&
+        createPortal(
+          <div className="toast-in fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-card2 border border-line px-5 py-3 text-sm card-shadow whitespace-nowrap">
+            {toast}
+          </div>,
+          document.body,
+        )}
       {gameValue != null && (
         <div className="rounded-2xl bg-card2 border border-line p-4 mb-3 flex items-center justify-between">
           <span className="text-sm text-muted">
@@ -287,8 +333,12 @@ function ConfessionSheet({
         {QUICK_DRINKS.map((d) => (
           <button
             key={`${d.label}-${d.volumeMl}`}
-            className="rounded-xl bg-card2 border border-line px-3 py-2.5 text-sm text-left"
-            onClick={() => dispatch({ type: 'addDrink', label: d.label, volumeMl: d.volumeMl, abv: d.abv })}
+            className="rounded-xl bg-card2 border border-line px-3 py-2.5 text-sm text-left active:bg-card"
+            onClick={() =>
+              d.abv >= 30
+                ? setAddSheet({ kind: 'shot' })
+                : setAddSheet({ kind: 'spread', label: d.label, volumeMl: d.volumeMl, abv: d.abv, icon: d.icon })
+            }
           >
             {d.icon} {d.label} {d.volumeMl} · {formatUnits(unitsOf(d.volumeMl, d.abv))} j.
           </button>
@@ -296,24 +346,39 @@ function ConfessionSheet({
       </div>
       <button
         className="inline-flex w-full h-11 items-center justify-center gap-2 rounded-xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold text-sm mb-2"
-        onClick={() => dispatch({ type: 'addWater' })}
+        onClick={() => {
+          dispatch({ type: 'addWater' })
+          haptic()
+          showToast('💧 Szklanka wody dopisana')
+        }}
       >
         <Droplets size={15} /> Szklanka wody
       </button>
       <p className="text-sm text-muted mb-2">A jadłeś coś? Jedzenie hamuje wchłanianie — index to liczy:</p>
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="mb-3">
         <button
-          className="h-11 rounded-xl bg-card2 border border-line text-sm"
-          onClick={() => dispatch({ type: 'addFood', kind: 'snack' })}
+          className="inline-flex w-full h-11 items-center justify-center gap-2 rounded-xl bg-card2 border border-line text-sm font-bold"
+          onClick={() => setFoodOpen((o) => !o)}
         >
-          🥜 Przekąska
+          <Utensils size={15} /> Dodaj jedzenie
+          <ChevronDown size={15} className={`transition-transform ${foodOpen ? 'rotate-180' : ''}`} />
         </button>
-        <button
-          className="h-11 rounded-xl bg-[#26200E] border border-accent/40 text-sm font-bold"
-          onClick={() => dispatch({ type: 'addFood', kind: 'meal' })}
-        >
-          🍔 Posiłek
-        </button>
+        {foodOpen && (
+          <div className="screen-in mt-2 grid grid-cols-2 gap-2">
+            <button
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-card2 border border-line text-sm"
+              onClick={() => addFood('snack')}
+            >
+              <Plus size={14} /> 🥜 Przekąska
+            </button>
+            <button
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[#26200E] border border-accent/40 text-sm font-bold"
+              onClick={() => addFood('meal')}
+            >
+              <Plus size={14} /> 🍔 Posiłek
+            </button>
+          </div>
+        )}
       </div>
       {pct != null && pct < 70 && (
         <p className="text-sm text-[#F5C6C6] bg-[#3A1A1A] border border-danger/30 rounded-xl px-4 py-3 mb-3">
