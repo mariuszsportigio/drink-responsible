@@ -687,8 +687,41 @@ function SessionTimeline({ session, now }: { session: DrinkSession; now: number 
 
   if (items.length <= 1) return null
 
+  const tally = { piwo: 0, wino: 0, shot: 0, inne: 0 }
+  for (const d of session.drinks) {
+    const l = d.label.toLowerCase()
+    if (l.includes('piwo')) tally.piwo++
+    else if (l.includes('wino')) tally.wino++
+    else if (l.includes('shot')) tally.shot++
+    else tally.inne++
+  }
+  const summary = [
+    { emoji: '🍺', label: 'piwa', n: tally.piwo },
+    { emoji: '🍷', label: 'wino', n: tally.wino },
+    { emoji: '🥃', label: 'shoty', n: tally.shot },
+    { emoji: '🍹', label: 'inne', n: tally.inne },
+  ].filter((s) => s.n > 0)
+
   return (
     <>
+      {summary.length > 0 && (
+        <>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-2">Dziś poszło</p>
+          <div className="mb-5 flex flex-wrap gap-2">
+            {summary.map((s) => (
+              <div key={s.label} className="flex items-center gap-2 rounded-xl bg-card border border-line px-3 py-2">
+                <span className="text-lg leading-none">{s.emoji}</span>
+                <span className="text-base font-extrabold tabular-nums leading-none">{s.n}</span>
+                <span className="text-[11px] text-muted leading-none">{s.label}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-2 rounded-xl bg-black/25 border border-line px-3 py-2">
+              <span className="text-base font-extrabold tabular-nums leading-none text-accent">{formatUnits(totalUnits(session.drinks))}</span>
+              <span className="text-[11px] text-muted leading-none">jednostek łącznie</span>
+            </div>
+          </div>
+        </>
+      )}
       <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-2">Timeline imprezy</p>
       <div className="relative mb-6">
         <div className="absolute left-[52px] top-2 bottom-2 w-px bg-line" />
