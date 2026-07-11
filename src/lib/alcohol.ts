@@ -61,6 +61,16 @@ export function waterDeficit(units: number, waterGlasses: number): number {
   return Math.max(0, Math.floor(units / 2) - waterGlasses)
 }
 
+/** Energy from ethanol alone: ~7 kcal per gram (mixers and snacks not included). */
+export function kcalOfUnits(units: number): number {
+  return Math.round(units * UNIT_GRAMS * 7)
+}
+
+/** "Strong" alcohol (shots, vodka) — absorbed fast, treated with extra care. */
+export function isStrong(abv: number): boolean {
+  return abv >= 30
+}
+
 export function formatUnits(units: number): string {
   return (Math.round(units * 10) / 10).toLocaleString('pl-PL')
 }

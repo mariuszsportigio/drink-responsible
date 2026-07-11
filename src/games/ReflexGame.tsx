@@ -1,21 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAppState } from '../state/store'
 
 const ROUNDS = 5
 const FALSTART_PENALTY_MS = 60
+const MISS_PENALTY_MS = 40
+const PRO_CELLS = 18 // 3 × 6
 
 type Phase = 'idle' | 'red' | 'green' | 'feedback' | 'done'
 
 /**
- * Red light / green light reaction test — the whole tall arena is the button.
- * Tap on green as fast as you can; tapping on red = false start (time penalty).
- * value = avg reaction ms + penalty per false start (lower = better).
+ * Red light / green light reaction test. Classic: the whole tall arena is the
+ * button. PRO (settings): 18 zones, only ONE lights up green — hit that one;
+ * wrong zone = miss penalty. Tap on red = false start. Lower value = better.
  */
 export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) {
+  const pro = useAppState().settings.reflexPro
   const [phase, setPhase] = useState<Phase>('idle')
-  const [flash, setFlash] = useState<{ ms?: number; falstart?: boolean } | null>(null)
+  const [flash, setFlash] = useState<{ ms?: number; falstart?: boolean; miss?: boolean } | null>(null)
+  const [target, setTarget] = useState(0)
   const [, forceRender] = useState(0)
   const times = useRef<number[]>([])
   const falstarts = useRef(0)
+  const misses = useRef(0)
   const shownAt = useRef(0)
   const timer = useRef<number | undefined>(undefined)
 
@@ -25,6 +31,7 @@ export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) 
     setFlash(null)
     setPhase('red')
     timer.current = window.setTimeout(() => {
+      setTarget(Math.floor(Math.random() * PRO_CELLS))
       shownAt.current = performance.now()
       setPhase('green')
     }, 900 + Math.random() * 1900)
@@ -34,98 +41,146 @@ export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) 
     setPhase('done')
     const avg = times.current.reduce((a, b) => a + b, 0) / times.current.length
     timer.current = window.setTimeout(
-      () => onFinish(Math.round(avg + falstarts.current * FALSTART_PENALTY_MS)),
+      () => onFinish(Math.round(avg + falstarts.current * FALSTART_PENALTY_MS + misses.current * MISS_PENALTY_MS)),
       900,
     )
   }
 
-  function tap() {
-    if (phase === 'idle') {
-      startRound()
-      return
-    }
-    if (phase === 'red') {
-      window.clearTimeout(timer.current)
-      falstarts.current++
-      forceRender((n) => n + 1)
-      setFlash({ falstart: true })
+  function hit() {
+    const rt = performance.now() - shownAt.current
+    times.current.push(rt)
+    setFlash({ ms: Math.round(rt) })
+    if (times.current.length >= ROUNDS) {
+      finish()
+    } else {
       setPhase('feedback')
-      timer.current = window.setTimeout(startRound, 1000)
-      return
+      timer.current = window.setTimeout(startRound, 850)
     }
-    if (phase === 'green') {
-      const rt = performance.now() - shownAt.current
-      times.current.push(rt)
-      setFlash({ ms: Math.round(rt) })
-      if (times.current.length >= ROUNDS) {
-        finish()
-      } else {
-        setPhase('feedback')
-        timer.current = window.setTimeout(startRound, 850)
-      }
+  }
+
+  function falstart() {
+    window.clearTimeout(timer.current)
+    falstarts.current++
+    forceRender((n) => n + 1)
+    setFlash({ falstart: true })
+    setPhase('feedback')
+    timer.current = window.setTimeout(startRound, 1000)
+  }
+
+  function tapArena() {
+    if (phase === 'idle') startRound()
+    else if (phase === 'red') falstart()
+    else if (phase === 'green' && !pro) hit()
+  }
+
+  function tapCell(i: number) {
+    if (phase !== 'green') return
+    if (i === target) {
+      hit()
+    } else {
+      misses.current++
+      forceRender((n) => n + 1)
     }
   }
 
   const roundNo = Math.min(times.current.length + 1, ROUNDS)
   const msColor = flash?.ms == null ? '' : flash.ms < 300 ? 'text-mint' : flash.ms < 450 ? 'text-accent' : 'text-danger'
 
-  const arena =
+  const arenaTone =
     phase === 'red'
       ? 'bg-[#3A1418] border-danger/40'
-      : phase === 'green'
+      : phase === 'green' && !pro
         ? 'bg-[#0E3B24] border-mint/50'
         : 'bg-card2 border-line'
+
+  const overlay = (
+    <>
+      {phase === 'idle' && (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10">
+          <span className="text-4xl">🚦</span>
+          <span className="font-bold text-lg">Tapnij, żeby zacząć</span>
+          <span className="text-xs text-muted px-8 text-center">
+            {pro
+              ? `Czerwone = czekaj. Zapali się JEDNO zielone pole z ${PRO_CELLS} — traf w nie. Pudło −${MISS_PENALTY_MS} ms, falstart −${FALSTART_PENALTY_MS} ms.`
+              : `Czerwone = czekaj. Zielone = TAP natychmiast. Falstart to −${FALSTART_PENALTY_MS} ms kary.`}
+          </span>
+        </span>
+      )}
+      {phase === 'red' && !pro && (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+          <span className="text-6xl">🔴</span>
+          <span className="font-bold text-lg tracking-widest text-danger">CZEKAJ…</span>
+        </span>
+      )}
+      {phase === 'green' && !pro && (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 screen-in">
+          <span className="text-7xl">🟢</span>
+          <span className="font-extrabold text-3xl tracking-widest text-mint">TAP!</span>
+        </span>
+      )}
+      {(phase === 'feedback' || phase === 'done') && flash && (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 screen-in z-10">
+          {flash.falstart ? (
+            <>
+              <span className="text-5xl">😅</span>
+              <span className="font-extrabold text-2xl text-danger">FALSTART</span>
+              <span className="text-sm text-muted">−{FALSTART_PENALTY_MS} ms kary · czekaj na zielone</span>
+            </>
+          ) : (
+            <>
+              <span className={`font-extrabold text-6xl tabular-nums ${msColor}`}>{flash.ms}</span>
+              <span className="text-sm text-muted">ms{phase === 'done' ? ' · koniec!' : ''}</span>
+            </>
+          )}
+        </span>
+      )}
+    </>
+  )
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-between text-sm text-muted">
-        <span>Runda {roundNo}/{ROUNDS}</span>
-        <span>Falstarty: {falstarts.current}</span>
+        <span>
+          Runda {roundNo}/{ROUNDS}
+          {pro && <span className="text-accent font-bold"> · PRO</span>}
+        </span>
+        <span>
+          Falstarty: {falstarts.current}
+          {pro && ` · pudła: ${misses.current}`}
+        </span>
       </div>
-      <button
+      <div
         aria-label="arena refleksu"
-        className={`relative h-[62dvh] min-h-[380px] w-full rounded-3xl border select-none transition-colors duration-100 ${arena}`}
+        className={`relative h-[62dvh] min-h-[380px] w-full rounded-3xl border select-none overflow-hidden transition-colors duration-100 ${arenaTone}`}
         style={{ touchAction: 'none' }}
-        onPointerDown={tap}
+        onPointerDown={(e) => {
+          if (pro && phase === 'green') return // cells handle green taps in PRO
+          e.preventDefault()
+          tapArena()
+        }}
       >
-        {phase === 'idle' && (
-          <span className="flex flex-col items-center gap-2">
-            <span className="text-4xl">🚦</span>
-            <span className="font-bold text-lg">Tapnij, żeby zacząć</span>
-            <span className="text-xs text-muted px-8">
-              Czerwone = czekaj. Zielone = TAP natychmiast. Falstart to −{FALSTART_PENALTY_MS} ms kary.
-            </span>
-          </span>
+        {pro && (phase === 'red' || phase === 'green') && (
+          <div className="absolute inset-0 grid grid-cols-3 grid-rows-6 gap-1.5 p-1.5">
+            {Array.from({ length: PRO_CELLS }, (_, i) => (
+              <button
+                key={i}
+                aria-label={`pole ${i + 1}`}
+                className={`rounded-xl transition-colors duration-75 ${
+                  phase === 'green' && i === target
+                    ? 'bg-mint shadow-[0_0_24px_rgba(52,211,153,0.7)]'
+                    : 'bg-[#2E1215] border border-danger/20'
+                }`}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  if (phase === 'red') falstart()
+                  else tapCell(i)
+                }}
+              />
+            ))}
+          </div>
         )}
-        {phase === 'red' && (
-          <span className="flex flex-col items-center gap-3">
-            <span className="text-6xl">🔴</span>
-            <span className="font-bold text-lg tracking-widest text-danger">CZEKAJ…</span>
-          </span>
-        )}
-        {phase === 'green' && (
-          <span className="flex flex-col items-center gap-3 screen-in">
-            <span className="text-7xl">🟢</span>
-            <span className="font-extrabold text-3xl tracking-widest text-mint">TAP!</span>
-          </span>
-        )}
-        {(phase === 'feedback' || phase === 'done') && flash && (
-          <span className="flex flex-col items-center gap-2 screen-in">
-            {flash.falstart ? (
-              <>
-                <span className="text-5xl">😅</span>
-                <span className="font-extrabold text-2xl text-danger">FALSTART</span>
-                <span className="text-sm text-muted">−{FALSTART_PENALTY_MS} ms kary · czekaj na zielone</span>
-              </>
-            ) : (
-              <>
-                <span className={`font-extrabold text-6xl tabular-nums ${msColor}`}>{flash.ms}</span>
-                <span className="text-sm text-muted">ms{phase === 'done' ? ' · koniec!' : ''}</span>
-              </>
-            )}
-          </span>
-        )}
-      </button>
+        {overlay}
+      </div>
     </div>
   )
 }

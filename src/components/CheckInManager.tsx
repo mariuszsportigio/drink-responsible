@@ -283,11 +283,26 @@ function ConfessionSheet({
         ))}
       </div>
       <button
-        className="w-full h-11 rounded-xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold text-sm mb-3"
+        className="w-full h-11 rounded-xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold text-sm mb-2"
         onClick={() => dispatch({ type: 'addWater' })}
       >
         💧 + Szklanka wody
       </button>
+      <p className="text-sm text-muted mb-2">A jadłeś coś? Jedzenie hamuje wchłanianie — index to liczy:</p>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <button
+          className="h-11 rounded-xl bg-card2 border border-line text-sm"
+          onClick={() => dispatch({ type: 'addFood', kind: 'snack' })}
+        >
+          🥜 Przekąska
+        </button>
+        <button
+          className="h-11 rounded-xl bg-[#26200E] border border-accent/40 text-sm font-bold"
+          onClick={() => dispatch({ type: 'addFood', kind: 'meal' })}
+        >
+          🍔 Posiłek
+        </button>
+      </div>
       {pct != null && pct < 70 && (
         <p className="text-sm text-[#F5C6C6] bg-[#3A1A1A] border border-danger/30 rounded-xl px-4 py-3 mb-3">
           Forma poniżej 70% — woda i zwolnij tempo. Żadnych ważnych decyzji, zero kierownicy.

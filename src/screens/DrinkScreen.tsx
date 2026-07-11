@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { sanitizeImportedState, useAppDispatch, useAppState } from '../state/store'
-import { QUICK_DRINKS, estimatePermille, formatPermille, formatUnits, totalUnits, unitsOf, waterDeficit } from '../lib/alcohol'
+import { QUICK_DRINKS, estimatePermille, formatPermille, formatUnits, kcalOfUnits, totalUnits, unitsOf, waterDeficit } from '../lib/alcohol'
+import { partyIndex, sessionIndexInput } from '../lib/partyIndex'
 import { GAME_KINDS, GAME_META, baselineComplete, baselineStale, formPct } from '../lib/games'
 import { coachLine, coachSummary, formatEta } from '../lib/coach'
 import { QUEST_DEFS, alcoholFreeDays, evaluateQuests, questDef } from '../lib/quests'
 import type { GameKind, Sex, SessionQuest } from '../lib/types'
-import { formatClock, formatDuration, haptic, median, uid } from '../lib/util'
+import { formatClock, formatDate, formatDuration, haptic, median, uid } from '../lib/util'
 import { GameHost, type GameResult } from '../games/GameHost'
-import { Ring } from '../components/Ring'
+import { Cockpit } from '../components/Cockpit'
 import { Modal } from '../components/Modal'
 import { MethodsInfoModal } from '../components/MethodsInfo'
 import { ensureNotifyPermission, notificationsSupported } from '../lib/notify'
@@ -62,7 +63,6 @@ export function DrinkScreen() {
   const permille = session && state.profile ? estimatePermille(session.drinks, state.profile, now) : 0
   const deficit = session ? waterDeficit(units, session.water.length) : 0
   const lastCheck = session?.checkIns[session.checkIns.length - 1]
-  const sessionHours = session ? (now - session.startedAt) / 3_600_000 : 0
   const liveQuests = session?.quests?.length ? evaluateQuests(session, now) : []
 
   // permille across ALL drinks from the last 24h — keeps burning down after the session ends
@@ -70,6 +70,9 @@ export function DrinkScreen() {
     .flatMap((s) => s.drinks)
     .filter((d) => d.ts >= now - 24 * 3_600_000)
   const recentPermille = state.profile ? estimatePermille(recentDrinks, state.profile, now) : 0
+
+  const idxInput = session && state.profile ? sessionIndexInput(session, state.profile, now) : null
+  const pIndex = idxInput ? partyIndex(idxInput) : 100
 
   const latestByKind = useMemo(() => {
     const map: Partial<Record<GameKind, { value: number; formPct: number }>> = {}
@@ -156,29 +159,24 @@ export function DrinkScreen() {
             </button>
           </div>
 
-          <div className="flex items-center gap-5">
-            <div className={lastCheck ? 'ring-glow' : ''}>
-              <Ring pct={lastCheck?.formPct} />
+          <Cockpit index={pIndex} permille={permille} form={lastCheck?.formPct} units={units} />
+
+          <div className="grid grid-cols-4 gap-2 mt-4 text-center">
+            <div className="rounded-xl bg-black/25 border border-line py-2">
+              <p className="text-base font-extrabold leading-tight">{formatUnits(units)}</p>
+              <p className="text-[10px] text-muted">jednostek</p>
             </div>
-            <div className="grid grid-cols-2 gap-x-5 gap-y-3 flex-1">
-              <div>
-                <p className="text-2xl font-extrabold leading-none">{formatUnits(units)}</p>
-                <p className="text-xs text-muted">jednostek</p>
-              </div>
-              <div>
-                <p className="text-2xl font-extrabold leading-none">{formatDuration(now - session.startedAt)}</p>
-                <p className="text-xs text-muted">czas sesji</p>
-              </div>
-              <div>
-                <p className="text-xl font-extrabold leading-none text-accent">{formatPermille(permille)}</p>
-                <p className="text-xs text-muted">szacunek*</p>
-              </div>
-              <div>
-                <p className="text-xl font-extrabold leading-none">
-                  <span className="text-aqua">{session.water.length}</span> szkl.
-                </p>
-                <p className="text-xs text-muted">woda</p>
-              </div>
+            <div className="rounded-xl bg-black/25 border border-line py-2">
+              <p className="text-base font-extrabold leading-tight">{formatDuration(now - session.startedAt)}</p>
+              <p className="text-[10px] text-muted">czas</p>
+            </div>
+            <div className="rounded-xl bg-black/25 border border-line py-2">
+              <p className="text-base font-extrabold leading-tight text-aqua">{session.water.length}</p>
+              <p className="text-[10px] text-muted">woda</p>
+            </div>
+            <div className="rounded-xl bg-black/25 border border-line py-2">
+              <p className="text-base font-extrabold leading-tight text-accent">{kcalOfUnits(units)}</p>
+              <p className="text-[10px] text-muted">kcal*</p>
             </div>
           </div>
 
@@ -207,14 +205,14 @@ export function DrinkScreen() {
           )}
 
           {(() => {
-            const recentUnits = totalUnits(session.drinks.filter((d) => d.ts >= now - 20 * 60_000))
             const line = coachLine({
+              index: pIndex,
               units,
               permille,
-              hours: sessionHours,
               deficit,
-              lastForm: lastCheck?.formPct,
-              recentUnits,
+              kcal: kcalOfUnits(units),
+              strongRecentUnits: idxInput?.strongRecentUnits ?? 0,
+              fedRecently: idxInput?.fedRecently ?? true,
               recall: lastCheck?.recall,
             })
             return (
@@ -255,6 +253,7 @@ export function DrinkScreen() {
         </section>
       )}
 
+      {!session && <RateYesterdayCard />}
       {!session && <AlcoholFreeCard />}
 
       {session && (
@@ -278,7 +277,7 @@ export function DrinkScreen() {
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-[1fr_auto] gap-3 mb-6">
+          <div className="grid grid-cols-[1fr_auto] gap-3 mb-3">
             <button
               className="h-12 rounded-2xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold"
               onClick={() => {
@@ -291,6 +290,28 @@ export function DrinkScreen() {
             </button>
             <button className="h-12 px-4 rounded-2xl bg-card border border-line text-sm" onClick={() => setShowCustom(true)}>
               ＋ Własny
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <button
+              className="h-12 rounded-2xl bg-card border border-line text-sm font-medium"
+              onClick={() => {
+                dispatch({ type: 'addFood', kind: 'snack' })
+                haptic()
+                showToast('🥜 Przekąska zapisana')
+              }}
+            >
+              🥜 Przekąska
+            </button>
+            <button
+              className="h-12 rounded-2xl bg-[#26200E] border border-accent/40 text-sm font-bold"
+              onClick={() => {
+                dispatch({ type: 'addFood', kind: 'meal' })
+                haptic()
+                showToast('🍔 Porządne jedzenie — index to doceni')
+              }}
+            >
+              🍔 Zjadłem posiłek
             </button>
           </div>
         </>
@@ -359,8 +380,9 @@ export function DrinkScreen() {
       )}
 
       <p className="text-[11px] leading-relaxed text-muted/80 border border-line rounded-2xl p-4">
-        * Szacunek promili (uproszczony model Widmarka) oraz wyniki gier są wyłącznie orientacyjne. NIE służą do oceny
-        zdolności prowadzenia pojazdów ani podejmowania ryzykownych decyzji. Po alkoholu nie prowadzisz — kropka.
+        * Szacunek promili (uproszczony model Widmarka), Party Index oraz wyniki gier są wyłącznie orientacyjne. NIE
+        służą do oceny zdolności prowadzenia pojazdów ani podejmowania ryzykownych decyzji. Po alkoholu nie prowadzisz —
+        kropka. Kcal liczone z samego etanolu (7 kcal/g) — bez colek, soków i przekąsek.
       </p>
 
       {gameMode && <GameHost plan={gameMode.plan} title={gameMode.title} onFinish={finishGames} onCancel={() => setGameMode(null)} />}
@@ -536,6 +558,51 @@ function EndSummaryModal({ onClose }: { onClose: () => void }) {
         </button>
       </div>
     </Modal>
+  )
+}
+
+function RateYesterdayCard() {
+  const state = useAppState()
+  const dispatch = useAppDispatch()
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const candidate = [...state.pastSessions]
+    .reverse()
+    .find(
+      (s) =>
+        s.endedAt != null &&
+        s.endedAt < startOfToday.getTime() &&
+        s.endedAt > Date.now() - 7 * 24 * 3_600_000 &&
+        s.selfRating == null &&
+        s.drinks.length > 0,
+    )
+  if (!candidate) return null
+
+  return (
+    <section className="rounded-3xl bg-gradient-to-b from-[#1B2320] to-card border border-line p-5 mb-4 card-shadow">
+      <p className="text-[11px] uppercase tracking-[0.2em] text-accent mb-1">Ocena ex post</p>
+      <h2 className="font-bold mb-1">Jak się trzymałeś {formatDate(candidate.startedAt)}?</h2>
+      <p className="text-sm text-muted mb-3">
+        Twoja ocena 1–10, na spokojnie, dzień po. Wskaźniki ({formatUnits(totalUnits(candidate.drinks))} j., index{' '}
+        {candidate.worstIndex ?? '—'}) to fakty — to jest Twój komentarz do nich.
+      </p>
+      <div className="grid grid-cols-10 gap-1">
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((r) => (
+          <button
+            key={r}
+            className={`h-9 rounded-lg border text-xs font-bold ${
+              r <= 3 ? 'border-danger/40 text-danger' : r <= 6 ? 'border-accent/40 text-accent' : 'border-mint/40 text-mint'
+            } bg-card2`}
+            onClick={() => {
+              dispatch({ type: 'rateSession', id: candidate.id, rating: r })
+              haptic([10, 30, 10])
+            }}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -784,6 +851,19 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             className="h-5 w-5 accent-[#34D399]"
             checked={state.settings.memoRecallEnabled}
             onChange={(e) => dispatch({ type: 'setSettings', settings: { memoRecallEnabled: e.target.checked } })}
+          />
+        </label>
+
+        <label className="flex items-center justify-between text-sm rounded-xl bg-card2 border border-line px-4 py-3">
+          <span>
+            Refleks PRO 🎯
+            <span className="block text-xs text-muted">18 pól — traf w to jedno, które się zapali. Po zmianie przelicz baseline.</span>
+          </span>
+          <input
+            type="checkbox"
+            className="h-5 w-5 accent-[#34D399]"
+            checked={state.settings.reflexPro}
+            onChange={(e) => dispatch({ type: 'setSettings', settings: { reflexPro: e.target.checked } })}
           />
         </label>
 

@@ -31,6 +31,12 @@ export interface WaterEntry {
   ts: number
 }
 
+export interface FoodEntry {
+  id: string
+  ts: number
+  kind: 'snack' | 'meal'
+}
+
 export interface CheckIn {
   ts: number
   kind: GameKind
@@ -59,6 +65,11 @@ export interface DrinkSession {
   quests?: SessionQuest[]
   /** words to recall at the next check-in */
   memoWords?: string[]
+  food?: FoodEntry[]
+  /** lowest Party Index during the session (computed at end) */
+  worstIndex?: number
+  /** next-day self-rating 1-10: "jak się trzymałem" */
+  selfRating?: number
 }
 
 export interface Mit {
@@ -79,6 +90,8 @@ export interface Settings {
   notificationsEnabled: boolean
   /** delayed-recall word quiz during check-ins */
   memoRecallEnabled: boolean
+  /** harder reflex: 18 zones, hit the one that lights up */
+  reflexPro: boolean
 }
 
 export interface AppState {
@@ -98,5 +111,5 @@ export const initialState: AppState = {
   pastSessions: [],
   mits: [],
   habits: [],
-  settings: { checkInMinutes: 60, notificationsEnabled: false, memoRecallEnabled: true },
+  settings: { checkInMinutes: 60, notificationsEnabled: false, memoRecallEnabled: true, reflexPro: false },
 }

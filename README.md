@@ -1,7 +1,8 @@
 # Drink Responsible — Personal OS
 
-Prywatna PWA (single user): fokus dnia (MIT), nawyki, statystyki i moduł **Drink Responsible**
-z licznikiem jednostek, szacunkiem promili (Widmark), wodą, mini-gierkami, questami i coachem.
+Prywatna PWA (single user) — **Party Mood Tracker**: kokpit sesji z Party Index, licznik jednostek
+i promili (Widmark), woda/jedzenie/kcal, mini-gierki z baseline, questy, coach z bazą tekstów,
+kalendarz miesiąca i oceny ex post. Realna apka — nie robi z użytkownika świętoszka, pomaga trzymać formę.
 
 **Live: https://mariuszsportigio.github.io/drink-responsible/**
 
@@ -62,8 +63,12 @@ npm run icons      # regeneracja ikon PWA
   spalania, forma % z check-inów, markery 🍺💧.
 - **Questy** ([src/lib/quests.ts](src/lib/quests.ts)): limit jednostek (3/4/6), woda w ryzach, stabilna forma ≥70%,
   spokojne tempo ≤1,5 j./h — wybierane przed sesją, uczciwy werdykt na końcu; do tego challenge „dni bez alkoholu" (7/14/30).
-- **Coach** ([src/lib/coach.ts](src/lib/coach.ts)): konkretne, szczere komentarze wg priorytetu
-  (promile ≥1,5 → forma <70% → zaległa woda → tempo → promile ≥0,8 → pochwała). Nigdy „możesz więcej".
+- **Party Index** ([src/lib/partyIndex.ts](src/lib/partyIndex.ts)): 100 = trzeźwy+nawodniony+najedzony+testy
+  w normie; ludzka kalibracja (4 piwa/3h zadbane ≈ 90, 8 piw/7h ≈ 78, 1‰ ≈ 72); shoty (≥30%) karane mocniej.
+  Kokpit: INDEX/PROMILE/FORMA przełączane tapem/swipe. WorstIndex sesji → kalendarz „dobrych dni".
+- **Coach** ([src/lib/coachLines.ts](src/lib/coachLines.ts)): ~80 tekstów w pulach wg stref indexu,
+  rotacja co 10 min; overlaye: spike po mocnym alkoholu, pusty żołądek, słaba pamięć. Nigdy „możesz więcej".
+- **Kalorie**: kcal z etanolu (7 kcal/g) w kokpicie i statach. **Ocena ex post 1-10** następnego dnia.
 - Wyniki i szacunki są orientacyjne — disclaimer w UI; po alkoholu nie prowadzisz, kropka.
 
 ## Struktura

@@ -12,7 +12,8 @@ export interface GameResult {
 }
 
 const INSTRUCTIONS: Record<GameKind, string> = {
-  reflex: 'Światła jak na starcie wyścigu: czerwone = czekaj, zielone = TAP natychmiast (cała plansza to przycisk). 5 rund, falstart = kara czasowa.',
+  reflex:
+    'Światła jak na starcie wyścigu: czerwone = czekaj, zielone = TAP natychmiast. W trybie PRO trafiasz w to jedno pole, które się zapali. 5 rund; falstart i pudło = kara czasowa.',
   trace: 'Przeciągnij palcem od zielonego punktu do pomarańczowego, trzymając się szarej ścieżki.',
   memory: 'Zapamiętaj sekwencję podświetlanych pól i powtórz ją. Sekwencja rośnie do 8.',
 }

@@ -4,8 +4,6 @@ import { TabBar, type Tab } from './components/TabBar'
 import { CheckInManager } from './components/CheckInManager'
 import { PushSync } from './components/PushSync'
 import { DrinkScreen } from './screens/DrinkScreen'
-import { TodayScreen } from './screens/TodayScreen'
-import { HabitsScreen } from './screens/HabitsScreen'
 import { StatsScreen } from './screens/StatsScreen'
 
 export default function App() {
@@ -14,10 +12,8 @@ export default function App() {
     <AppProvider>
       <div className="mx-auto max-w-md min-h-dvh pt-[env(safe-area-inset-top)]">
         <div key={tab} className="screen-in">
-          {tab === 'today' && <TodayScreen />}
-          {tab === 'habits' && <HabitsScreen />}
-          {tab === 'stats' && <StatsScreen />}
           {tab === 'drink' && <DrinkScreen />}
+          {tab === 'stats' && <StatsScreen />}
         </div>
         <TabBar tab={tab} onChange={setTab} />
         <CheckInManager />

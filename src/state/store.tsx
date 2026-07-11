@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useReducer, type ReactNode, type 
 import { initialState, type AppState, type Baseline, type CheckIn, type Profile, type SessionQuest, type Settings } from '../lib/types'
 import { unitsOf } from '../lib/alcohol'
 import { evaluateQuests } from '../lib/quests'
+import { sessionWorstIndex } from '../lib/partyIndex'
 import { dateStr, uid } from '../lib/util'
 
 const STORAGE_KEY = 'drink-tracker/v1'
@@ -15,6 +16,8 @@ export type Action =
   | { type: 'addDrink'; label: string; volumeMl: number; abv: number; ts?: number; id?: string }
   | { type: 'removeDrink'; id: string }
   | { type: 'addWater' }
+  | { type: 'addFood'; kind: 'snack' | 'meal' }
+  | { type: 'rateSession'; id: string; rating: number }
   | { type: 'recordCheckIn'; checkIn: CheckIn }
   | { type: 'setMemoWords'; words: string[] | undefined }
   | { type: 'commitMit'; text: string }
@@ -41,6 +44,7 @@ function reducer(state: AppState, action: Action): AppState {
       if (!state.activeSession) return state
       const ended = { ...state.activeSession, endedAt: Date.now() }
       ended.quests = evaluateQuests(ended, ended.endedAt)
+      if (state.profile) ended.worstIndex = sessionWorstIndex(ended, state.profile)
       return { ...state, activeSession: undefined, pastSessions: [...state.pastSessions, ended] }
     }
     case 'setAlcoholFreeTarget':
@@ -90,6 +94,23 @@ function reducer(state: AppState, action: Action): AppState {
         },
       }
     }
+    case 'addFood': {
+      if (!state.activeSession) return state
+      return {
+        ...state,
+        activeSession: {
+          ...state.activeSession,
+          food: [...(state.activeSession.food ?? []), { id: uid(), ts: Date.now(), kind: action.kind }],
+        },
+      }
+    }
+    case 'rateSession':
+      return {
+        ...state,
+        pastSessions: state.pastSessions.map((s) =>
+          s.id === action.id ? { ...s, selfRating: Math.max(1, Math.min(10, action.rating)) } : s,
+        ),
+      }
     case 'setMemoWords': {
       if (!state.activeSession) return state
       return { ...state, activeSession: { ...state.activeSession, memoWords: action.words } }
