@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { DrinkSession, Profile } from '../lib/types'
 import { dayQuality, sessionWorstIndex, type DayQuality } from '../lib/partyIndex'
 import { dateStr } from '../lib/util'
@@ -69,16 +70,21 @@ export function MonthCalendar({ sessions, profile }: { sessions: DrinkSession[];
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <button className="h-8 w-8 rounded-full bg-card2 border border-line text-muted" onClick={() => setOffset((o) => o - 1)}>
-          ‹
+        <button
+          aria-label="poprzedni miesiąc"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-card2 border border-line text-muted"
+          onClick={() => setOffset((o) => o - 1)}
+        >
+          <ChevronLeft size={16} />
         </button>
         <p className="font-bold text-sm first-letter:uppercase">{label}</p>
         <button
-          className="h-8 w-8 rounded-full bg-card2 border border-line text-muted disabled:opacity-30"
+          aria-label="następny miesiąc"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-card2 border border-line text-muted disabled:opacity-30"
           disabled={offset >= 0}
           onClick={() => setOffset((o) => o + 1)}
         >
-          ›
+          <ChevronRight size={16} />
         </button>
       </div>
       <div className="grid grid-cols-7 gap-1.5 mb-1">

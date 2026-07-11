@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
+import { Check, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAppDispatch, useAppState } from '../state/store'
 import { totalUnits, formatUnits, kcalOfUnits } from '../lib/alcohol'
-import { alcoholFreeDays, questDef } from '../lib/quests'
+import { alcoholFreeDays } from '../lib/quests'
 import { indexColor, sessionWorstIndex } from '../lib/partyIndex'
+import { QUEST_ICONS } from '../components/icons'
 import { SessionChart } from '../components/SessionChart'
 import { MonthCalendar } from '../components/MonthCalendar'
 import { addDays, dateStr, formatDate, formatDuration, haptic } from '../lib/util'
@@ -125,23 +127,26 @@ export function StatsScreen() {
                   <div className="flex items-center justify-between mt-1.5">
                     {(s.quests?.length ?? 0) > 0 && s.endedAt ? (
                       <div className="flex flex-wrap gap-1.5">
-                        {s.quests!.map((q) => (
-                          <span
-                            key={q.id}
-                            className={`rounded-full border px-2.5 py-0.5 text-[11px] ${
-                              q.done ? 'border-mint/40 text-mint bg-mint/5' : 'border-danger/40 text-danger bg-danger/5'
-                            }`}
-                          >
-                            {questDef(q.id).icon} {q.done ? '✓' : '✗'}
-                          </span>
-                        ))}
+                        {s.quests!.map((q) => {
+                          const QIcon = QUEST_ICONS[q.id]
+                          return (
+                            <span
+                              key={q.id}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] ${
+                                q.done ? 'border-mint/40 text-mint bg-mint/5' : 'border-danger/40 text-danger bg-danger/5'
+                              }`}
+                            >
+                              <QIcon size={11} /> {q.done ? <Check size={11} /> : <X size={11} />}
+                            </span>
+                          )
+                        })}
                       </div>
                     ) : (
                       <span />
                     )}
                     {s.endedAt &&
                       (s.selfRating != null ? (
-                        <span className="text-[11px] text-muted">🖐 Twoja ocena: <span className="text-white font-bold">{s.selfRating}/10</span></span>
+                        <span className="text-[11px] text-muted">Twoja ocena: <span className="text-white font-bold">{s.selfRating}/10</span></span>
                       ) : (
                         <div className="flex items-center gap-1">
                           <span className="text-[11px] text-muted mr-1">oceń:</span>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, Play } from 'lucide-react'
 import { useAppState } from '../state/store'
 
 const ROUNDS = 5
@@ -96,8 +97,10 @@ export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) 
   const overlay = (
     <>
       {phase === 'idle' && (
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10">
-          <span className="text-4xl">🚦</span>
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-mint/10 border border-mint/40 text-mint">
+            <Play size={26} fill="currentColor" />
+          </span>
           <span className="font-bold text-lg">Tapnij, żeby zacząć</span>
           <span className="text-xs text-muted px-8 text-center">
             {pro
@@ -107,22 +110,22 @@ export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) 
         </span>
       )}
       {phase === 'red' && !pro && (
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-          <span className="text-6xl">🔴</span>
-          <span className="font-bold text-lg tracking-widest text-danger">CZEKAJ…</span>
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-5">
+          <span className="h-24 w-24 rounded-full bg-danger shadow-[0_0_48px_rgba(248,113,113,0.5)]" />
+          <span className="font-bold text-lg tracking-[0.3em] text-danger">CZEKAJ</span>
         </span>
       )}
       {phase === 'green' && !pro && (
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 screen-in">
-          <span className="text-7xl">🟢</span>
-          <span className="font-extrabold text-3xl tracking-widest text-mint">TAP!</span>
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-5 screen-in">
+          <span className="h-28 w-28 rounded-full bg-mint shadow-[0_0_64px_rgba(52,211,153,0.7)]" />
+          <span className="font-extrabold text-3xl tracking-[0.3em] text-mint">TAP</span>
         </span>
       )}
       {(phase === 'feedback' || phase === 'done') && flash && (
         <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 screen-in z-10">
           {flash.falstart ? (
             <>
-              <span className="text-5xl">😅</span>
+              <AlertTriangle size={44} className="text-danger" />
               <span className="font-extrabold text-2xl text-danger">FALSTART</span>
               <span className="text-sm text-muted">−{FALSTART_PENALTY_MS} ms kary · czekaj na zielone</span>
             </>

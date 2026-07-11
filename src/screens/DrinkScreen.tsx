@@ -7,10 +7,29 @@ import { coachLine, coachSummary, formatEta } from '../lib/coach'
 import { QUEST_DEFS, alcoholFreeDays, evaluateQuests, questDef } from '../lib/quests'
 import type { GameKind, Sex, SessionQuest } from '../lib/types'
 import { formatClock, formatDate, formatDuration, haptic, median, uid } from '../lib/util'
+import {
+  Check,
+  Compass,
+  Download,
+  Droplets,
+  Flag,
+  Flame,
+  FlaskConical,
+  Info,
+  Play,
+  Plus,
+  RefreshCw,
+  Settings,
+  Target,
+  TrendingDown,
+  Upload,
+  X,
+} from 'lucide-react'
 import { GameHost, type GameResult } from '../games/GameHost'
 import { Cockpit } from '../components/Cockpit'
 import { Modal } from '../components/Modal'
 import { MethodsInfoModal } from '../components/MethodsInfo'
+import { GAME_ICONS, QUEST_ICONS } from '../components/icons'
 import { ensureNotifyPermission, notificationsSupported } from '../lib/notify'
 
 const BASELINE_PLAN: GameKind[] = ['reflex', 'reflex', 'reflex', 'trace', 'trace', 'trace', 'memory', 'memory', 'memory']
@@ -116,10 +135,10 @@ export function DrinkScreen() {
         </div>
         <button
           aria-label="ustawienia"
-          className="h-10 w-10 rounded-full bg-card border border-line"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-card border border-line text-muted"
           onClick={() => setShowSettings(true)}
         >
-          ⚙️
+          <Settings size={18} strokeWidth={1.8} />
         </button>
       </header>
 
@@ -181,8 +200,9 @@ export function DrinkScreen() {
           </div>
 
           {permille >= 0.01 && (
-            <p className="mt-3 text-xs text-muted">
-              🔥 spalanie ~0,15‰/h · zero <span className="text-white/80">{formatEta(permille)}</span>
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+              <Flame size={13} className="text-accent" /> spalanie ~0,15‰/h · zero{' '}
+              <span className="text-white/80">{formatEta(permille)}</span>
             </p>
           )}
 
@@ -190,14 +210,15 @@ export function DrinkScreen() {
             <div className="mt-3 flex flex-wrap gap-2">
               {liveQuests.map((q) => {
                 const def = questDef(q.id)
+                const QIcon = QUEST_ICONS[q.id]
                 return (
                   <span
                     key={q.id}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
                       q.done ? 'bg-[#12251C] border-mint/40 text-mint' : 'bg-[#2A1A12] border-danger/40 text-[#F5C6C6]'
                     }`}
                   >
-                    {def.icon} {def.title(q.target)} · {def.progress(session, q.target, now)}
+                    <QIcon size={13} /> {def.title(q.target)} · {def.progress(session, q.target, now)}
                   </span>
                 )
               })}
@@ -216,20 +237,23 @@ export function DrinkScreen() {
               recall: lastCheck?.recall,
             })
             return (
-              <div key={line} className="screen-in mt-4 rounded-2xl bg-black/25 border border-line px-4 py-3 text-sm text-white/85 leading-relaxed">
-                🧭 {line}
+              <div key={line} className="screen-in mt-4 flex gap-2.5 rounded-2xl bg-black/25 border border-line px-4 py-3 text-sm text-white/85 leading-relaxed">
+                <Compass size={16} className="mt-0.5 shrink-0 text-muted" />
+                <span>{line}</span>
               </div>
             )
           })()}
 
           {deficit > 0 && (
-            <div className="mt-3 rounded-2xl bg-[#3A3213] border border-accent/30 px-4 py-3 text-sm text-[#F3E3B0]">
-              💧 Stosunek alkohol:woda się psuje — dolej {deficit > 1 ? `${deficit} szklanki` : 'szklankę'} wody.
+            <div className="mt-3 flex items-center gap-2.5 rounded-2xl bg-[#3A3213] border border-accent/30 px-4 py-3 text-sm text-[#F3E3B0]">
+              <Droplets size={16} className="shrink-0 text-aqua" />
+              <span>Stosunek alkohol:woda się psuje — dolej {deficit > 1 ? `${deficit} szklanki` : 'szklankę'} wody.</span>
             </div>
           )}
           {lastCheck && lastCheck.formPct < 70 && (
-            <div className="mt-3 rounded-2xl bg-[#3A1A1A] border border-danger/30 px-4 py-3 text-sm text-[#F5C6C6]">
-              🐢 Forma poniżej 70% normy. Woda, wolniejsze tempo, żadnych ważnych decyzji.
+            <div className="mt-3 flex items-center gap-2.5 rounded-2xl bg-[#3A1A1A] border border-danger/30 px-4 py-3 text-sm text-[#F5C6C6]">
+              <TrendingDown size={16} className="shrink-0 text-danger" />
+              <span>Forma poniżej 70% normy. Woda, wolniejsze tempo, żadnych ważnych decyzji.</span>
             </div>
           )}
         </section>
@@ -245,10 +269,10 @@ export function DrinkScreen() {
           </p>
           <button
             disabled={!hasProfile || !hasBaseline}
-            className="h-14 w-full rounded-2xl bg-mint text-black font-bold text-lg disabled:opacity-40"
+            className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-mint text-black font-bold text-lg disabled:opacity-40"
             onClick={() => setShowQuestPick(true)}
           >
-            ▶ Zacznij sesję
+            <Play size={19} fill="currentColor" /> Zacznij sesję
           </button>
         </section>
       )}
@@ -273,23 +297,26 @@ export function DrinkScreen() {
                     {d.volumeMl} ml · {formatUnits(unitsOf(d.volumeMl, d.abv))} j.
                   </span>
                 </span>
-                <span className="text-muted">＋</span>
+                <Plus size={16} className="text-muted" />
               </button>
             ))}
           </div>
           <div className="grid grid-cols-[1fr_auto] gap-3 mb-3">
             <button
-              className="h-12 rounded-2xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold"
               onClick={() => {
                 dispatch({ type: 'addWater' })
                 haptic()
                 showToast('💧 Szklanka wody dopisana')
               }}
             >
-              💧 + Szklanka wody
+              <Droplets size={17} /> Szklanka wody
             </button>
-            <button className="h-12 px-4 rounded-2xl bg-card border border-line text-sm" onClick={() => setShowCustom(true)}>
-              ＋ Własny
+            <button
+              className="inline-flex h-12 items-center justify-center gap-1.5 px-4 rounded-2xl bg-card border border-line text-sm"
+              onClick={() => setShowCustom(true)}
+            >
+              <Plus size={15} /> Własny
             </button>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-6">
@@ -320,10 +347,13 @@ export function DrinkScreen() {
       {hasBaseline && (
         <>
           <div className="flex items-baseline justify-between mb-2">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted">
-              Sprawdź formę{' '}
-              <button className="text-aqua normal-case tracking-normal" onClick={() => setShowMethods(true)}>
-                ⓘ metody
+            <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted">
+              Sprawdź formę
+              <button
+                className="inline-flex items-center gap-1 text-aqua normal-case tracking-normal"
+                onClick={() => setShowMethods(true)}
+              >
+                <Info size={13} /> metody
               </button>
             </p>
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted/60">vs baseline</p>
@@ -331,6 +361,7 @@ export function DrinkScreen() {
           <div className="flex flex-col gap-2.5 mb-6">
             {GAME_KINDS.map((k) => {
               const meta = GAME_META[k]
+              const GIcon = GAME_ICONS[k]
               const latest = latestByKind[k]
               const pct = latest?.formPct
               return (
@@ -339,20 +370,24 @@ export function DrinkScreen() {
                   className="flex items-center gap-3 rounded-2xl bg-card border border-line p-4 text-left active:bg-card2"
                   onClick={() => setGameMode({ plan: [k], title: session ? 'Check formy' : 'Trening', mode: 'single' })}
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-card2 text-lg">{meta.icon}</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-card2 border border-line text-mint">
+                    <GIcon size={18} strokeWidth={1.9} />
+                  </span>
                   <span className="flex-1">
                     <span className="block font-bold text-sm">{meta.name}</span>
                     <span className="block text-xs text-muted">
                       {latest ? `teraz ${meta.describe(latest.value)} · ` : ''}baseline {meta.describe(state.baseline[k] ?? 0)}
                     </span>
                   </span>
-                  <span
-                    className={`text-lg font-extrabold ${
-                      pct == null ? 'text-muted' : pct >= 85 ? 'text-mint' : pct >= 70 ? 'text-accent' : 'text-danger'
-                    }`}
-                  >
-                    {pct == null ? '▶' : `${pct}%`}
-                  </span>
+                  {pct == null ? (
+                    <Play size={16} className="text-muted" />
+                  ) : (
+                    <span
+                      className={`text-lg font-extrabold ${pct >= 85 ? 'text-mint' : pct >= 70 ? 'text-accent' : 'text-danger'}`}
+                    >
+                      {pct}%
+                    </span>
+                  )}
                 </button>
               )
             })}
@@ -370,8 +405,8 @@ export function DrinkScreen() {
                 <span className="flex-1">
                   {d.label} {d.volumeMl} ml · {formatUnits(d.units)} j.
                 </span>
-                <button className="text-muted" onClick={() => dispatch({ type: 'removeDrink', id: d.id })}>
-                  ✕
+                <button aria-label="usuń wpis" className="text-muted" onClick={() => dispatch({ type: 'removeDrink', id: d.id })}>
+                  <X size={14} />
                 </button>
               </div>
             ))}
@@ -447,23 +482,28 @@ function QuestPickModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="🎯 Challenge na tę sesję?" onClose={onClose}>
+    <Modal title="Challenge na tę sesję?" icon={<Target size={16} className="text-accent" />} onClose={onClose}>
       <p className="text-sm text-muted mb-4">
         Wybierz, co dziś dowozisz. Werdykt na koniec sesji — bez taryfy ulgowej.
       </p>
       <div className="flex flex-col gap-2.5 mb-5">
-        {QUEST_DEFS.map((def) => (
+        {QUEST_DEFS.map((def) => {
+          const QIcon = QUEST_ICONS[def.id]
+          return (
           <div
             key={def.id}
             className={`rounded-2xl border p-4 ${has(def.id) ? 'bg-[#12251C] border-mint/40' : 'bg-card2 border-line'}`}
           >
             <button className="flex w-full items-start gap-3 text-left" onClick={() => def.targets ? undefined : toggle(def.id)}>
-              <span className="text-xl">{def.icon}</span>
+              <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${has(def.id) ? 'border-mint/40 text-mint' : 'border-line text-muted'}`}>
+                <QIcon size={17} strokeWidth={1.9} />
+              </span>
               <span className="flex-1">
                 <span className="block font-bold text-sm">{def.title(targetOf(def.id) ?? def.targets?.[1])}</span>
                 <span className="block text-xs text-muted mt-0.5">{def.desc}</span>
               </span>
-              {!def.targets && <span className={has(def.id) ? 'text-mint' : 'text-muted'}>{has(def.id) ? '✓' : '＋'}</span>}
+              {!def.targets &&
+                (has(def.id) ? <Check size={17} className="text-mint" /> : <Plus size={17} className="text-muted" />)}
             </button>
             {def.targets && (
               <div className="flex gap-2 mt-3">
@@ -481,11 +521,15 @@ function QuestPickModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
       <div className="flex gap-3">
-        <button className="flex-1 h-13 py-3.5 rounded-2xl bg-mint text-black font-bold" onClick={() => start(picked)}>
-          ▶ Start {picked.length > 0 ? `(${picked.length} quest${picked.length === 1 ? '' : 'y'})` : ''}
+        <button
+          className="inline-flex flex-1 items-center justify-center gap-2 py-3.5 rounded-2xl bg-mint text-black font-bold"
+          onClick={() => start(picked)}
+        >
+          <Play size={16} fill="currentColor" /> Start {picked.length > 0 ? `(${picked.length} quest${picked.length === 1 ? '' : 'y'})` : ''}
         </button>
         <button className="h-13 py-3.5 px-4 rounded-2xl bg-card2 border border-line text-sm" onClick={() => start([])}>
           Bez questów
@@ -506,7 +550,7 @@ function EndSummaryModal({ onClose }: { onClose: () => void }) {
   const done = verdicts.filter((q) => q.done).length
 
   return (
-    <Modal title="🏁 Podsumowanie sesji" onClose={onClose}>
+    <Modal title="Podsumowanie sesji" icon={<Flag size={16} className="text-mint" />} onClose={onClose}>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="rounded-xl bg-card2 border border-line p-3">
           <p className="text-xl font-extrabold">{formatUnits(units)} j.</p>
@@ -528,19 +572,23 @@ function EndSummaryModal({ onClose }: { onClose: () => void }) {
         <div className="flex flex-col gap-2 mb-4">
           {verdicts.map((q) => {
             const def = questDef(q.id)
+            const QIcon = QUEST_ICONS[q.id]
             return (
               <div key={q.id} className="flex items-center gap-3 rounded-xl bg-card2 border border-line px-4 py-2.5 text-sm">
-                <span>{def.icon}</span>
+                <QIcon size={16} className="text-muted" />
                 <span className="flex-1">{def.title(q.target)}</span>
-                <span className={q.done ? 'text-mint font-bold' : 'text-danger font-bold'}>{q.done ? '✅ zaliczony' : '❌ nie'}</span>
+                <span className={`inline-flex items-center gap-1 font-bold ${q.done ? 'text-mint' : 'text-danger'}`}>
+                  {q.done ? <Check size={15} /> : <X size={15} />} {q.done ? 'zaliczony' : 'nie'}
+                </span>
               </div>
             )
           })}
         </div>
       )}
 
-      <p className="text-sm text-white/85 bg-black/25 border border-line rounded-xl px-4 py-3 mb-4 leading-relaxed">
-        🧭 {coachSummary(units, done, verdicts.length)}
+      <p className="flex gap-2.5 text-sm text-white/85 bg-black/25 border border-line rounded-xl px-4 py-3 mb-4 leading-relaxed">
+        <Compass size={16} className="mt-0.5 shrink-0 text-muted" />
+        <span>{coachSummary(units, done, verdicts.length, session.worstIndex)}</span>
       </p>
 
       <div className="flex gap-3">
@@ -856,7 +904,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
         <label className="flex items-center justify-between text-sm rounded-xl bg-card2 border border-line px-4 py-3">
           <span>
-            Refleks PRO 🎯
+            Refleks PRO
             <span className="block text-xs text-muted">18 pól — traf w to jedno, które się zapali. Po zmianie przelicz baseline.</span>
           </span>
           <input
@@ -868,10 +916,10 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         </label>
 
         <button
-          className="h-11 rounded-xl bg-card2 border border-line text-sm font-medium text-left px-4"
+          className="inline-flex h-11 items-center gap-2.5 rounded-xl bg-card2 border border-line text-sm font-medium text-left px-4"
           onClick={() => setShowMethods(true)}
         >
-          ℹ️ Jak mierzymy formę — metody, zalety, wady
+          <Info size={16} className="text-aqua shrink-0" /> Jak mierzymy formę — metody, zalety, wady
         </button>
 
         <p className="text-xs text-muted">
@@ -893,10 +941,12 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                 URL.revokeObjectURL(a.href)
               }}
             >
-              ⬇️ Eksport JSON
+              <span className="inline-flex items-center justify-center gap-2">
+                <Download size={15} /> Eksport JSON
+              </span>
             </button>
-            <label className="flex-1 h-11 rounded-xl bg-card2 border border-line text-sm font-medium flex items-center justify-center cursor-pointer">
-              ⬆️ Import JSON
+            <label className="flex-1 h-11 rounded-xl bg-card2 border border-line text-sm font-medium flex items-center justify-center gap-2 cursor-pointer">
+              <Upload size={15} /> Import JSON
               <input
                 type="file"
                 accept="application/json,.json"
@@ -930,7 +980,9 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               }
             }}
           >
-            🎯 Przelicz baseline od nowa
+            <span className="inline-flex items-center justify-center gap-2">
+              <RefreshCw size={15} /> Przelicz baseline od nowa
+            </span>
           </button>
         </div>
 
@@ -951,7 +1003,9 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               onClose()
             }}
           >
-            🧪 Wgraj przykładowy baseline
+            <span className="inline-flex items-center justify-center gap-2">
+              <FlaskConical size={15} /> Wgraj przykładowy baseline
+            </span>
           </button>
         </div>
       </div>

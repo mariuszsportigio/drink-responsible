@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Play, X } from 'lucide-react'
 import type { GameKind } from '../lib/types'
 import { GAME_META } from '../lib/games'
+import { GAME_ICONS } from '../components/icons'
 import { useLockBodyScroll } from '../lib/useLockBodyScroll'
 import { ReflexGame } from './ReflexGame'
 import { TraceGame } from './TraceGame'
@@ -57,13 +59,21 @@ export function GameHost({
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-muted">{title}</p>
-            <h2 className="text-xl font-bold">
-              {meta.icon} {meta.name}
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              {(() => {
+                const GIcon = GAME_ICONS[kind]
+                return <GIcon size={20} className="text-mint" />
+              })()}
+              {meta.name}
               {roundTotal > 1 && <span className="text-muted font-normal text-base"> · runda {roundNo}/{roundTotal}</span>}
             </h2>
           </div>
-          <button className="h-9 w-9 rounded-full bg-card2 border border-line text-muted" onClick={onCancel}>
-            ✕
+          <button
+            aria-label="zamknij"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-card2 border border-line text-muted"
+            onClick={onCancel}
+          >
+            <X size={16} />
           </button>
         </div>
 
@@ -78,8 +88,11 @@ export function GameHost({
             <div className="rounded-2xl bg-card border border-line p-5">
               <p className="text-sm leading-relaxed text-white/80">{INSTRUCTIONS[kind]}</p>
             </div>
-            <button className="h-14 rounded-2xl bg-accent text-black font-bold text-lg" onClick={() => setStage('play')}>
-              Start ({idx + 1}/{plan.length})
+            <button
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-accent text-black font-bold text-lg"
+              onClick={() => setStage('play')}
+            >
+              <Play size={18} fill="currentColor" /> Start ({idx + 1}/{plan.length})
             </button>
           </div>
         ) : (

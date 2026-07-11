@@ -6,6 +6,7 @@ import { QUICK_DRINKS, formatUnits, totalUnits, unitsOf } from '../lib/alcohol'
 import { buildRecallChips, gradeRecall, pickMemoWords, recallComment } from '../lib/recall'
 import { notify } from '../lib/notify'
 import { haptic } from '../lib/util'
+import { AlarmClock, Beer, Brain, Check, Droplets } from 'lucide-react'
 import { GameHost } from '../games/GameHost'
 import { Modal } from '../components/Modal'
 
@@ -85,10 +86,10 @@ export function CheckInManager() {
 
   if (phase === 'prompt') {
     return (
-      <Modal title="⏰ Check-in formy">
+      <Modal title="Check-in formy" icon={<AlarmClock size={16} className="text-accent" />}>
         <p className="text-sm text-muted mb-4">
           Minęła godzina sesji. {hasRecallQuiz ? 'Najpierw pamięć: co miałeś zapamiętać? Potem' : 'Szybka'} gierka (
-          {GAME_META[kind].icon} {GAME_META[kind].name}) i spowiedź z drinków i wody.
+          {GAME_META[kind].name}) i spowiedź z drinków i wody.
         </p>
         <div className="flex gap-3">
           <button
@@ -161,7 +162,7 @@ function RecallQuiz({ words, onDone }: { words: string[]; onDone: (correct: numb
   }
 
   return (
-    <Modal title="🧠 Co miałeś zapamiętać?">
+    <Modal title="Co miałeś zapamiętać?" icon={<Brain size={16} className="text-aqua" />}>
       <p className="text-sm text-muted mb-4">
         Wybierz {words.length} słowa z ostatniego check-inu — <span className="text-white/80">kolejność się liczy</span>.
       </p>
@@ -244,7 +245,7 @@ function ConfessionSheet({
   const lastHourWater = session.water.filter((w) => w.ts >= hourAgo)
 
   return (
-    <Modal title="🍺 Spowiedź — ostatnia godzina">
+    <Modal title="Spowiedź — ostatnia godzina" icon={<Beer size={16} className="text-accent" />}>
       {gameValue != null && (
         <div className="rounded-2xl bg-card2 border border-line p-4 mb-3 flex items-center justify-between">
           <span className="text-sm text-muted">
@@ -262,8 +263,12 @@ function ConfessionSheet({
           <span className="text-muted">
             Pamięć odroczona: <span className="text-white font-bold">{recallResult.correct}/{recallResult.total}</span>
           </span>
-          <span className={recallResult.correct === recallResult.total ? 'text-mint' : recallResult.correct >= 2 ? 'text-accent' : 'text-danger'}>
-            {recallResult.correct === recallResult.total ? '🔒' : recallResult.correct >= 2 ? '👌' : '😬'}
+          <span
+            className={`font-bold ${
+              recallResult.correct === recallResult.total ? 'text-mint' : recallResult.correct >= 2 ? 'text-accent' : 'text-danger'
+            }`}
+          >
+            {recallResult.correct === recallResult.total ? 'pełna' : recallResult.correct >= 2 ? 'jeszcze jest' : 'dziurawa'}
           </span>
         </div>
       )}
@@ -283,10 +288,10 @@ function ConfessionSheet({
         ))}
       </div>
       <button
-        className="w-full h-11 rounded-xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold text-sm mb-2"
+        className="inline-flex w-full h-11 items-center justify-center gap-2 rounded-xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold text-sm mb-2"
         onClick={() => dispatch({ type: 'addWater' })}
       >
-        💧 + Szklanka wody
+        <Droplets size={15} /> Szklanka wody
       </button>
       <p className="text-sm text-muted mb-2">A jadłeś coś? Jedzenie hamuje wchłanianie — index to liczy:</p>
       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -310,13 +315,18 @@ function ConfessionSheet({
       )}
       {newWords && (
         <div className="screen-in rounded-2xl border border-accent/40 bg-gradient-to-b from-[#2E2510] to-card p-4 mb-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-accent mb-2">🧠 Zapamiętaj na następny check-in</p>
+          <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.2em] text-accent mb-2">
+            <Brain size={13} /> Zapamiętaj na następny check-in
+          </p>
           <p className="text-2xl font-extrabold tracking-wide text-center py-1">{newWords.join(' · ')}</p>
           <p className="text-[11px] text-muted text-center mt-1">Zapytam za {state.settings.checkInMinutes} min. Bez ściągi.</p>
         </div>
       )}
-      <button className="w-full h-12 rounded-2xl bg-mint text-black font-bold" onClick={() => onFinish(newWords)}>
-        ✅ Wszystko wpisane
+      <button
+        className="inline-flex w-full h-12 items-center justify-center gap-2 rounded-2xl bg-mint text-black font-bold"
+        onClick={() => onFinish(newWords)}
+      >
+        <Check size={17} strokeWidth={2.5} /> Wszystko wpisane
       </button>
     </Modal>
   )

@@ -10,6 +10,7 @@
     "icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
+    "lucide-react": "^1.24.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "recharts": "^2.15.3",
