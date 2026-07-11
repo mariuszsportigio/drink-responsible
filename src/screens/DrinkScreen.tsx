@@ -27,7 +27,10 @@ export function DrinkScreen() {
   const state = useAppState()
   const dispatch = useAppDispatch()
   const session = state.activeSession
-  const now = useNow(!!session)
+  const stillBurning = [...state.pastSessions, ...(session ? [session] : [])].some((s) =>
+    s.drinks.some((d) => d.ts >= Date.now() - 24 * 3_600_000),
+  )
+  const now = useNow(!!session || stillBurning)
 
   const [gameMode, setGameMode] = useState<null | { plan: GameKind[]; title: string; mode: 'baseline' | 'single' }>(null)
   const [showCustom, setShowCustom] = useState(false)
@@ -44,6 +47,12 @@ export function DrinkScreen() {
   const lastCheck = session?.checkIns[session.checkIns.length - 1]
   const sessionHours = session ? (now - session.startedAt) / 3_600_000 : 0
   const liveQuests = session?.quests?.length ? evaluateQuests(session, now) : []
+
+  // permille across ALL drinks from the last 24h — keeps burning down after the session ends
+  const recentDrinks = [...state.pastSessions, ...(session ? [session] : [])]
+    .flatMap((s) => s.drinks)
+    .filter((d) => d.ts >= now - 24 * 3_600_000)
+  const recentPermille = state.profile ? estimatePermille(recentDrinks, state.profile, now) : 0
 
   const latestByKind = useMemo(() => {
     const map: Partial<Record<GameKind, { value: number; formPct: number }>> = {}
@@ -93,6 +102,8 @@ export function DrinkScreen() {
           ⚙️
         </button>
       </header>
+
+      {hasProfile && (session || recentPermille > 0.005) && <SobrietyBar permille={recentPermille} />}
 
       {!hasProfile && <ProfileCard />}
 
@@ -510,6 +521,34 @@ function AlcoholFreeCard() {
           </div>
         </>
       )}
+    </section>
+  )
+}
+
+/** Independent sobriety gauge: 100% = 0.0‰, 0% = 3.0‰ (linear). */
+function SobrietyBar({ permille }: { permille: number }) {
+  const pct = Math.round(Math.max(0, Math.min(100, (1 - permille / 3) * 100)))
+  const color = pct >= 80 ? '#34D399' : pct >= 50 ? '#F5A524' : '#F87171'
+  return (
+    <section className="rounded-2xl bg-card border border-line px-4 py-3 mb-4">
+      <div className="flex items-baseline justify-between mb-2">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted">Trzeźwość</p>
+        <p className="text-sm">
+          <span className="font-extrabold" style={{ color }}>{pct}%</span>
+          <span className="text-muted"> · {formatPermille(permille)}</span>
+        </p>
+      </div>
+      <div className="relative h-3 rounded-full bg-card2 overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${pct}%`, background: color, transition: 'width 0.6s ease, background 0.6s ease' }}
+        />
+      </div>
+      <div className="flex justify-between mt-1.5 text-[10px] text-muted/70">
+        <span>0% = 3,0‰</span>
+        {permille >= 0.01 && <span>zero {formatEta(permille)}</span>}
+        <span>100% = 0,0‰</span>
+      </div>
     </section>
   )
 }
