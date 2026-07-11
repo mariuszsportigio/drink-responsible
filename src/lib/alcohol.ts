@@ -35,18 +35,35 @@ export function widmarkFactor(profile: Profile): number {
 /**
  * Simplified Widmark estimate (permille, g/kg). Walks the drink timeline:
  * each drink adds grams/(weight*r), between events BAC decays by
- * ELIMINATION_PER_HOUR, clamped at 0. Orientational only.
+ * ELIMINATION_PER_HOUR, clamped at 0. Drinks sipped over `spreadMin`
+ * are split into portions across that window. Orientational only.
  */
 export function estimatePermille(drinks: DrinkEntry[], profile: Profile, at: number): number {
   if (drinks.length === 0 || profile.weightKg <= 0) return 0
   const r = widmarkFactor(profile)
-  const sorted = [...drinks].sort((a, b) => a.ts - b.ts)
+
+  const events: { ts: number; grams: number }[] = []
+  for (const d of drinks) {
+    const grams = d.units * UNIT_GRAMS
+    const spreadMs = (d.spreadMin ?? 0) * 60_000
+    if (spreadMs <= 0) {
+      events.push({ ts: d.ts, grams })
+      continue
+    }
+    const portions = Math.min(6, Math.max(2, Math.round((d.spreadMin ?? 0) / 8)))
+    for (let i = 0; i < portions; i++) {
+      events.push({ ts: d.ts - spreadMs + (spreadMs * (i + 0.5)) / portions, grams: grams / portions })
+    }
+  }
+  events.sort((a, b) => a.ts - b.ts)
+
   let bac = 0
-  let prevTs = sorted[0].ts
-  for (const d of sorted) {
-    bac = Math.max(0, bac - ((d.ts - prevTs) / 3_600_000) * ELIMINATION_PER_HOUR)
-    bac += (d.units * UNIT_GRAMS) / (profile.weightKg * r)
-    prevTs = d.ts
+  let prevTs = events[0].ts
+  for (const e of events) {
+    if (e.ts > at) break
+    bac = Math.max(0, bac - ((e.ts - prevTs) / 3_600_000) * ELIMINATION_PER_HOUR)
+    bac += e.grams / (profile.weightKg * r)
+    prevTs = e.ts
   }
   bac = Math.max(0, bac - (Math.max(0, at - prevTs) / 3_600_000) * ELIMINATION_PER_HOUR)
   return bac

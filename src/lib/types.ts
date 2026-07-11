@@ -19,11 +19,14 @@ export interface Baseline {
 
 export interface DrinkEntry {
   id: string
+  /** finish time — with spreadMin > 0 consumption is spread over [ts - spreadMin, ts] */
   ts: number
   label: string
   volumeMl: number
   abv: number
   units: number
+  /** sipping time in minutes (0/undefined = downed at once) */
+  spreadMin?: number
 }
 
 export interface WaterEntry {

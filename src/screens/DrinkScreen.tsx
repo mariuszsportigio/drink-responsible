@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { sanitizeImportedState, useAppDispatch, useAppState } from '../state/store'
 import { QUICK_DRINKS, estimatePermille, formatPermille, formatUnits, kcalOfUnits, totalUnits, unitsOf, waterDeficit } from '../lib/alcohol'
-import { partyIndex, sessionIndexInput } from '../lib/partyIndex'
+import { indexColor, partyIndex, sessionIndexInput } from '../lib/partyIndex'
 import { GAME_KINDS, GAME_META, baselineComplete, baselineStale, formPct } from '../lib/games'
 import { coachLine, coachSummary, formatEta } from '../lib/coach'
 import { QUEST_DEFS, alcoholFreeDays, evaluateQuests, questDef } from '../lib/quests'
-import type { GameKind, Sex, SessionQuest } from '../lib/types'
+import type { DrinkSession, GameKind, Sex, SessionQuest } from '../lib/types'
 import { formatClock, formatDate, formatDuration, haptic, median, uid } from '../lib/util'
 import {
+  Activity,
   Check,
   Compass,
   Download,
@@ -62,6 +64,7 @@ export function DrinkScreen() {
   const [practice, setPractice] = useState<GameResult | null>(null)
   const [toast, setToast] = useState<{ msg: string; undoId?: string } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
+  const [addSheet, setAddSheet] = useState<AddSheetKind | null>(null)
 
   function showToast(msg: string, undoId?: string) {
     window.clearTimeout(toastTimer.current)
@@ -69,11 +72,11 @@ export function DrinkScreen() {
     toastTimer.current = window.setTimeout(() => setToast(null), 3500)
   }
 
-  function quickAdd(label: string, volumeMl: number, abv: number) {
+  function quickAdd(label: string, volumeMl: number, abv: number, opts?: { spreadMin?: number; ts?: number; note?: string }) {
     const id = uid()
-    dispatch({ type: 'addDrink', label, volumeMl, abv, id })
+    dispatch({ type: 'addDrink', label, volumeMl, abv, id, spreadMin: opts?.spreadMin, ts: opts?.ts })
     haptic()
-    showToast(`${label} ${volumeMl} ml · +${formatUnits(unitsOf(volumeMl, abv))} j.`, id)
+    showToast(`${label} ${volumeMl} ml · +${formatUnits(unitsOf(volumeMl, abv))} j.${opts?.note ? ` · ${opts.note}` : ''}`, id)
   }
 
   const hasProfile = !!state.profile
@@ -282,13 +285,17 @@ export function DrinkScreen() {
 
       {session && (
         <>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-2">Dodaj — 1 tap</p>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-2">Dodaj</p>
           <div className="grid grid-cols-2 gap-3 mb-3">
             {QUICK_DRINKS.map((d) => (
               <button
                 key={`${d.label}-${d.volumeMl}`}
                 className="flex items-center gap-3 rounded-2xl bg-card border border-line p-4 text-left active:bg-card2"
-                onClick={() => quickAdd(d.label, d.volumeMl, d.abv)}
+                onClick={() =>
+                  d.abv >= 30
+                    ? setAddSheet({ kind: 'shot' })
+                    : setAddSheet({ kind: 'spread', label: d.label, volumeMl: d.volumeMl, abv: d.abv, icon: d.icon })
+                }
               >
                 <span className="text-2xl">{d.icon}</span>
                 <span className="flex-1">
@@ -300,10 +307,33 @@ export function DrinkScreen() {
                 <Plus size={16} className="text-muted" />
               </button>
             ))}
-          </div>
-          <div className="grid grid-cols-[1fr_auto] gap-3 mb-3">
             <button
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold"
+              className="flex items-center gap-3 rounded-2xl bg-card border border-line p-4 text-left active:bg-card2"
+              onClick={() => setAddSheet({ kind: 'mixed' })}
+            >
+              <span className="text-2xl">🍹</span>
+              <span className="flex-1">
+                <span className="block font-bold text-sm">Drink</span>
+                <span className="block text-xs text-muted">słaby / średni / mocny</span>
+              </span>
+              <Plus size={16} className="text-muted" />
+            </button>
+            <button
+              className="flex items-center gap-3 rounded-2xl bg-card border border-line p-4 text-left active:bg-card2"
+              onClick={() => setShowCustom(true)}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-line text-muted">
+                <Plus size={16} />
+              </span>
+              <span className="flex-1">
+                <span className="block font-bold text-sm">Własny</span>
+                <span className="block text-xs text-muted">ml + % ręcznie</span>
+              </span>
+            </button>
+          </div>
+          <div className="mb-3">
+            <button
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold"
               onClick={() => {
                 dispatch({ type: 'addWater' })
                 haptic()
@@ -311,12 +341,6 @@ export function DrinkScreen() {
               }}
             >
               <Droplets size={17} /> Szklanka wody
-            </button>
-            <button
-              className="inline-flex h-12 items-center justify-center gap-1.5 px-4 rounded-2xl bg-card border border-line text-sm"
-              onClick={() => setShowCustom(true)}
-            >
-              <Plus size={15} /> Własny
             </button>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-6">
@@ -395,24 +419,7 @@ export function DrinkScreen() {
         </>
       )}
 
-      {session && session.drinks.length > 0 && (
-        <>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-2">Wpisy sesji</p>
-          <div className="flex flex-col gap-2 mb-6">
-            {[...session.drinks].reverse().map((d) => (
-              <div key={d.id} className="flex items-center gap-3 rounded-xl bg-card border border-line px-4 py-2.5 text-sm">
-                <span className="text-muted tabular-nums">{formatClock(d.ts)}</span>
-                <span className="flex-1">
-                  {d.label} {d.volumeMl} ml · {formatUnits(d.units)} j.
-                </span>
-                <button aria-label="usuń wpis" className="text-muted" onClick={() => dispatch({ type: 'removeDrink', id: d.id })}>
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {session && <SessionTimeline session={session} now={now} />}
 
       <p className="text-[11px] leading-relaxed text-muted/80 border border-line rounded-2xl p-4">
         * Szacunek promili (uproszczony model Widmarka), Party Index oraz wyniki gier są wyłącznie orientacyjne. NIE
@@ -438,23 +445,289 @@ export function DrinkScreen() {
       {showEndSummary && session && <EndSummaryModal onClose={() => setShowEndSummary(false)} />}
       {showMethods && <MethodsInfoModal onClose={() => setShowMethods(false)} />}
 
-      {toast && (
-        <div className="toast-in fixed bottom-24 left-1/2 z-50 flex items-center gap-3 rounded-full bg-card2 border border-line px-5 py-3 text-sm card-shadow whitespace-nowrap">
-          <span>{toast.msg}</span>
-          {toast.undoId && (
-            <button
-              className="font-bold text-accent"
-              onClick={() => {
-                dispatch({ type: 'removeDrink', id: toast.undoId! })
-                setToast(null)
-              }}
-            >
-              Cofnij
-            </button>
-          )}
-        </div>
+      {addSheet && (
+        <AddDrinkSheet
+          sheet={addSheet}
+          onAdd={quickAdd}
+          onClose={() => setAddSheet(null)}
+        />
       )}
+
+      {toast &&
+        createPortal(
+          <div className="toast-in fixed bottom-24 left-1/2 z-[70] flex items-center gap-3 rounded-full bg-card2 border border-line px-5 py-3 text-sm card-shadow whitespace-nowrap">
+            <span>{toast.msg}</span>
+            {toast.undoId && (
+              <button
+                className="font-bold text-accent"
+                onClick={() => {
+                  dispatch({ type: 'removeDrink', id: toast.undoId! })
+                  setToast(null)
+                }}
+              >
+                Cofnij
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
+  )
+}
+
+type AddSheetKind =
+  | { kind: 'spread'; label: string; volumeMl: number; abv: number; icon: string }
+  | { kind: 'shot' }
+  | { kind: 'mixed' }
+
+const SPREAD_STOPS = [0, 10, 20, 30, 45]
+const SPREAD_LABELS = ['na raz', '10 min', '20 min', '30 min', '45 min']
+/** 1 dawka = 40 ml 40% ≈ 12,6 g etanolu */
+const DOSE_ALCOHOL_ML = 16
+
+function AddDrinkSheet({
+  sheet,
+  onAdd,
+  onClose,
+}: {
+  sheet: AddSheetKind
+  onAdd: (label: string, volumeMl: number, abv: number, opts?: { spreadMin?: number; ts?: number; note?: string }) => void
+  onClose: () => void
+}) {
+  const [spreadIdx, setSpreadIdx] = useState(2) // default: 20 min
+  const [minutesAgo, setMinutesAgo] = useState(5)
+  const [doses, setDoses] = useState(2) // drink: default średni
+  const [smallGlass, setSmallGlass] = useState(false)
+
+  if (sheet.kind === 'spread') {
+    const spread = SPREAD_STOPS[spreadIdx]
+    return (
+      <Modal title={`${sheet.icon} ${sheet.label} ${sheet.volumeMl} ml`} onClose={onClose}>
+        <p className="text-sm text-muted mb-4">W jakim tempie poszło? To zmienia krzywą promili.</p>
+        <input
+          type="range"
+          min={0}
+          max={SPREAD_STOPS.length - 1}
+          step={1}
+          value={spreadIdx}
+          onChange={(e) => {
+            setSpreadIdx(Number(e.target.value))
+            haptic(6)
+          }}
+        />
+        <div className="flex justify-between text-[10px] text-muted mb-3 px-0.5">
+          {SPREAD_LABELS.map((l, i) => (
+            <span key={l} className={i === spreadIdx ? 'text-mint font-bold' : ''}>
+              {l}
+            </span>
+          ))}
+        </div>
+        <p className="text-center text-sm mb-5">
+          {spread === 0 ? (
+            <span className="text-accent font-bold">Na raz — wjedzie szybko</span>
+          ) : (
+            <>
+              Sączone przez <span className="font-bold text-mint">~{spread} min</span>
+            </>
+          )}
+        </p>
+        <button
+          className="inline-flex h-13 w-full items-center justify-center gap-2 py-3.5 rounded-2xl bg-mint text-black font-bold"
+          onClick={() => {
+            onAdd(sheet.label, sheet.volumeMl, sheet.abv, {
+              spreadMin: spread || undefined,
+              note: spread ? `sączone ${spread} min` : 'na raz',
+            })
+            onClose()
+          }}
+        >
+          <Plus size={17} /> Dodaj ({formatUnits(unitsOf(sheet.volumeMl, sheet.abv))} j.)
+        </button>
+      </Modal>
+    )
+  }
+
+  if (sheet.kind === 'shot') {
+    return (
+      <Modal title="🥃 Shot 40 ml" onClose={onClose}>
+        <p className="text-sm text-muted mb-4">
+          Kiedy poszedł? Mocny alkohol wjeżdża szybko — czas ma znaczenie dla krzywej.
+        </p>
+        <div className="flex items-center justify-center gap-4 mb-5">
+          <button
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-card2 border border-line text-xl font-bold disabled:opacity-30"
+            disabled={minutesAgo <= 0}
+            onClick={() => setMinutesAgo((m) => Math.max(0, m - 5))}
+          >
+            −
+          </button>
+          <div className="w-32 text-center">
+            <p className="text-3xl font-extrabold tabular-nums">{minutesAgo === 0 ? 'teraz' : minutesAgo}</p>
+            {minutesAgo > 0 && <p className="text-xs text-muted">min temu</p>}
+          </div>
+          <button
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-card2 border border-line text-xl font-bold disabled:opacity-30"
+            disabled={minutesAgo >= 120}
+            onClick={() => setMinutesAgo((m) => Math.min(120, m + 5))}
+          >
+            +
+          </button>
+        </div>
+        <button
+          className="inline-flex h-13 w-full items-center justify-center gap-2 py-3.5 rounded-2xl bg-mint text-black font-bold"
+          onClick={() => {
+            onAdd('Shot', 40, 40, {
+              ts: Date.now() - minutesAgo * 60_000,
+              note: minutesAgo ? `${minutesAgo} min temu` : undefined,
+            })
+            onClose()
+          }}
+        >
+          <Plus size={17} /> Dodaj ({formatUnits(unitsOf(40, 40))} j.)
+        </button>
+      </Modal>
+    )
+  }
+
+  // mixed drink: strength = doses of alcohol, glass 250 ml (or small 180 ml)
+  const volume = smallGlass ? 180 : 250
+  const abv = Math.round(((doses * DOSE_ALCOHOL_ML) / volume) * 1000) / 10
+  const strengthName = ['słaby', 'średni', 'mocny'][doses - 1]
+  return (
+    <Modal title="🍹 Drink" onClose={onClose}>
+      <p className="text-sm text-muted mb-3">Jaka moc? Dawka = porcja 40 ml 40%.</p>
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        {[1, 2, 3].map((d) => (
+          <button
+            key={d}
+            className={`h-14 rounded-2xl border text-sm font-bold ${
+              doses === d ? 'bg-mint text-black border-mint' : 'bg-card2 border-line'
+            }`}
+            onClick={() => {
+              setDoses(d)
+              haptic(6)
+            }}
+          >
+            {['słaby', 'średni', 'mocny'][d - 1]}
+            <span className={`block text-[10px] font-normal ${doses === d ? 'text-black/60' : 'text-muted'}`}>
+              {d} {d === 1 ? 'dawka' : 'dawki'}
+            </span>
+          </button>
+        ))}
+      </div>
+      <button
+        className="inline-flex h-13 w-full items-center justify-center gap-2 py-3.5 rounded-2xl bg-mint text-black font-bold mb-3"
+        onClick={() => {
+          onAdd(`Drink (${strengthName})`, volume, abv, { spreadMin: 15, note: 'sączone ~15 min' })
+          onClose()
+        }}
+      >
+        <Plus size={17} /> Dodaj ({formatUnits(unitsOf(volume, abv))} j. · {volume} ml)
+      </button>
+      <button
+        className={`w-full text-center text-xs ${smallGlass ? 'text-mint font-bold' : 'text-muted underline'}`}
+        onClick={() => setSmallGlass((s) => !s)}
+      >
+        {smallGlass ? '✓ mała szklanka 180 ml' : 'mała szklanka? zmień na 180 ml'}
+      </button>
+    </Modal>
+  )
+}
+
+function SessionTimeline({ session, now }: { session: DrinkSession; now: number }) {
+  const state = useAppState()
+  const dispatch = useAppDispatch()
+  const profile = state.profile
+
+  type FeedItem = {
+    ts: number
+    key: string
+    icon: React.ReactNode
+    text: string
+    sub?: string
+    drinkId?: string
+  }
+
+  const items: FeedItem[] = [
+    {
+      ts: session.startedAt,
+      key: 'start',
+      icon: <Play size={13} className="text-mint" />,
+      text: 'Start sesji',
+    },
+    ...session.drinks.map((d) => ({
+      ts: d.ts,
+      key: d.id,
+      icon: <span className="text-sm leading-none">{d.label.toLowerCase().includes('piwo') ? '🍺' : d.label.toLowerCase().includes('wino') ? '🍷' : d.label.toLowerCase().includes('shot') ? '🥃' : '🍹'}</span>,
+      text: `${d.label} ${d.volumeMl} ml · +${formatUnits(d.units)} j.`,
+      sub: d.spreadMin ? `sączone ~${d.spreadMin} min` : undefined,
+      drinkId: d.id,
+    })),
+    ...session.water.map((w) => ({
+      ts: w.ts,
+      key: w.id,
+      icon: <Droplets size={13} className="text-aqua" />,
+      text: 'Szklanka wody',
+    })),
+    ...(session.food ?? []).map((f) => ({
+      ts: f.ts,
+      key: f.id,
+      icon: <span className="text-sm leading-none">{f.kind === 'meal' ? '🍔' : '🥜'}</span>,
+      text: f.kind === 'meal' ? 'Porządny posiłek' : 'Przekąska',
+    })),
+    ...session.checkIns.map((c, i) => ({
+      ts: c.ts,
+      key: `check-${i}`,
+      icon: <Activity size={13} className="text-accent" />,
+      text: `Check-in: ${GAME_META[c.kind].name} → ${c.formPct}% formy`,
+      sub: c.recall ? `pamięć odroczona ${c.recall.correct}/${c.recall.total}` : undefined,
+    })),
+  ].sort((a, b) => b.ts - a.ts)
+
+  if (items.length <= 1) return null
+
+  return (
+    <>
+      <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-2">Timeline imprezy</p>
+      <div className="relative mb-6">
+        <div className="absolute left-[52px] top-2 bottom-2 w-px bg-line" />
+        <div className="flex flex-col gap-1.5">
+          {items.map((it) => {
+            const p = profile ? estimatePermille(session.drinks, profile, Math.min(it.ts, now)) : 0
+            const idx = profile ? partyIndex(sessionIndexInput(session, profile, Math.min(it.ts, now))) : 100
+            return (
+              <div key={it.key} className="flex items-center gap-2.5 text-sm">
+                <span className="w-10 shrink-0 text-right text-xs text-muted tabular-nums">{formatClock(it.ts)}</span>
+                <span className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card2 border border-line">
+                  {it.icon}
+                </span>
+                <span className="flex-1 min-w-0 rounded-xl bg-card border border-line px-3 py-2">
+                  <span className="block truncate text-[13px]">{it.text}</span>
+                  {it.sub && <span className="block text-[11px] text-muted">{it.sub}</span>}
+                </span>
+                <span className="w-[74px] shrink-0 text-right">
+                  <span className="block text-[11px] tabular-nums text-accent">{formatPermille(p)}</span>
+                  <span className="block text-[11px] tabular-nums font-bold" style={{ color: indexColor(idx) }}>
+                    idx {idx}
+                  </span>
+                </span>
+                {it.drinkId ? (
+                  <button
+                    aria-label="usuń wpis"
+                    className="shrink-0 text-muted/60"
+                    onClick={() => dispatch({ type: 'removeDrink', id: it.drinkId! })}
+                  >
+                    <X size={13} />
+                  </button>
+                ) : (
+                  <span className="w-[13px] shrink-0" />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </>
   )
 }
 

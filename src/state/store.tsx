@@ -13,7 +13,7 @@ export type Action =
   | { type: 'startSession'; quests: SessionQuest[] }
   | { type: 'endSession' }
   | { type: 'setAlcoholFreeTarget'; days?: number }
-  | { type: 'addDrink'; label: string; volumeMl: number; abv: number; ts?: number; id?: string }
+  | { type: 'addDrink'; label: string; volumeMl: number; abv: number; ts?: number; id?: string; spreadMin?: number }
   | { type: 'removeDrink'; id: string }
   | { type: 'addWater' }
   | { type: 'addFood'; kind: 'snack' | 'meal' }
@@ -58,6 +58,7 @@ function reducer(state: AppState, action: Action): AppState {
         volumeMl: action.volumeMl,
         abv: action.abv,
         units: unitsOf(action.volumeMl, action.abv),
+        spreadMin: action.spreadMin,
       }
       return {
         ...state,
