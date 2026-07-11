@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Play, X } from 'lucide-react'
 import type { GameKind } from '../lib/types'
 import { GAME_META } from '../lib/games'
@@ -53,8 +54,10 @@ export function GameHost({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 bg-bg/95 backdrop-blur-sm overflow-y-auto overscroll-contain" style={{ touchAction: 'pan-y' }}>
+  // Portal to <body>: escapes any transformed ancestor so the overlay always
+  // covers the full screen (incl. the TabBar) instead of being clipped by it.
+  return createPortal(
+    <div className="fixed inset-0 z-[60] bg-bg/95 backdrop-blur-sm overflow-y-auto overscroll-contain" style={{ touchAction: 'pan-y' }}>
       <div className="mx-auto max-w-md px-5 py-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -103,6 +106,7 @@ export function GameHost({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
