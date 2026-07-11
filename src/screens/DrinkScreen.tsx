@@ -933,6 +933,27 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             🎯 Przelicz baseline od nowa
           </button>
         </div>
+
+        <div className="border-t border-dashed border-line pt-4">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-1">Tryb testowy</p>
+          <p className="text-[11px] text-muted/70 mb-3">
+            Wgraj przykładowy baseline (standardowe wartości), żeby od razu odpalić sesję i potestować flow bez
+            kalibracji. Później możesz zmierzyć swój na trzeźwo.
+          </p>
+          <button
+            className="w-full h-11 rounded-xl bg-[#2E2510] border border-accent/40 text-sm font-bold text-accent"
+            onClick={() => {
+              dispatch({
+                type: 'setBaseline',
+                baseline: { reflex: 320, trace: 82, memory: 6, calibratedAt: Date.now() },
+              })
+              if (!state.profile) dispatch({ type: 'setProfile', profile: { weightKg: 80, sex: 'male' } })
+              onClose()
+            }}
+          >
+            🧪 Wgraj przykładowy baseline
+          </button>
+        </div>
       </div>
     </Modal>
   )
