@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { GameKind } from '../lib/types'
 import { GAME_META } from '../lib/games'
+import { useLockBodyScroll } from '../lib/useLockBodyScroll'
 import { ReflexGame } from './ReflexGame'
 import { TraceGame } from './TraceGame'
 import { MemoryGame } from './MemoryGame'
@@ -11,7 +12,7 @@ export interface GameResult {
 }
 
 const INSTRUCTIONS: Record<GameKind, string> = {
-  reflex: 'Tapnij zielone kółko jak najszybciej, gdy się pojawi. 5 rund. Falstart i pudło = kara czasowa.',
+  reflex: 'Światła jak na starcie wyścigu: czerwone = czekaj, zielone = TAP natychmiast (cała plansza to przycisk). 5 rund, falstart = kara czasowa.',
   trace: 'Przeciągnij palcem od zielonego punktu do pomarańczowego, trzymając się szarej ścieżki.',
   memory: 'Zapamiętaj sekwencję podświetlanych pól i powtórz ją. Sekwencja rośnie do 8.',
 }
@@ -27,6 +28,7 @@ export function GameHost({
   onFinish: (results: GameResult[]) => void
   onCancel: () => void
 }) {
+  useLockBodyScroll()
   const [idx, setIdx] = useState(0)
   const [stage, setStage] = useState<'intro' | 'play'>('intro')
   const [results, setResults] = useState<GameResult[]>([])
@@ -49,8 +51,8 @@ export function GameHost({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-bg/95 backdrop-blur-sm overflow-y-auto">
-      <div className="mx-auto max-w-md px-5 py-6">
+    <div className="fixed inset-0 z-50 bg-bg/95 backdrop-blur-sm overflow-y-auto overscroll-contain" style={{ touchAction: 'pan-y' }}>
+      <div className="mx-auto max-w-md px-5 py-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-muted">{title}</p>

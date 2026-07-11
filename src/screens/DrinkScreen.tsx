@@ -9,6 +9,7 @@ import { formatClock, formatDuration, haptic, median, uid } from '../lib/util'
 import { GameHost, type GameResult } from '../games/GameHost'
 import { Ring } from '../components/Ring'
 import { Modal } from '../components/Modal'
+import { MethodsInfoModal } from '../components/MethodsInfo'
 import { ensureNotifyPermission, notificationsSupported } from '../lib/notify'
 
 const BASELINE_PLAN: GameKind[] = ['reflex', 'reflex', 'reflex', 'trace', 'trace', 'trace', 'memory', 'memory', 'memory']
@@ -37,6 +38,7 @@ export function DrinkScreen() {
   const [showSettings, setShowSettings] = useState(false)
   const [showQuestPick, setShowQuestPick] = useState(false)
   const [showEndSummary, setShowEndSummary] = useState(false)
+  const [showMethods, setShowMethods] = useState(false)
   const [practice, setPractice] = useState<GameResult | null>(null)
   const [toast, setToast] = useState<{ msg: string; undoId?: string } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -204,9 +206,23 @@ export function DrinkScreen() {
             </div>
           )}
 
-          <div className="mt-4 rounded-2xl bg-black/25 border border-line px-4 py-3 text-sm text-white/85 leading-relaxed">
-            🧭 {coachLine({ units, permille, hours: sessionHours, deficit, lastForm: lastCheck?.formPct })}
-          </div>
+          {(() => {
+            const recentUnits = totalUnits(session.drinks.filter((d) => d.ts >= now - 20 * 60_000))
+            const line = coachLine({
+              units,
+              permille,
+              hours: sessionHours,
+              deficit,
+              lastForm: lastCheck?.formPct,
+              recentUnits,
+              recall: lastCheck?.recall,
+            })
+            return (
+              <div key={line} className="screen-in mt-4 rounded-2xl bg-black/25 border border-line px-4 py-3 text-sm text-white/85 leading-relaxed">
+                🧭 {line}
+              </div>
+            )
+          })()}
 
           {deficit > 0 && (
             <div className="mt-3 rounded-2xl bg-[#3A3213] border border-accent/30 px-4 py-3 text-sm text-[#F3E3B0]">
@@ -283,7 +299,12 @@ export function DrinkScreen() {
       {hasBaseline && (
         <>
           <div className="flex items-baseline justify-between mb-2">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted">Sprawdź formę</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted">
+              Sprawdź formę{' '}
+              <button className="text-aqua normal-case tracking-normal" onClick={() => setShowMethods(true)}>
+                ⓘ metody
+              </button>
+            </p>
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted/60">vs baseline</p>
           </div>
           <div className="flex flex-col gap-2.5 mb-6">
@@ -358,6 +379,7 @@ export function DrinkScreen() {
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showQuestPick && <QuestPickModal onClose={() => setShowQuestPick(false)} />}
       {showEndSummary && session && <EndSummaryModal onClose={() => setShowEndSummary(false)} />}
+      {showMethods && <MethodsInfoModal onClose={() => setShowMethods(false)} />}
 
       {toast && (
         <div className="toast-in fixed bottom-24 left-1/2 z-50 flex items-center gap-3 rounded-full bg-card2 border border-line px-5 py-3 text-sm card-shadow whitespace-nowrap">
@@ -680,6 +702,9 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const p = state.profile
   const [weight, setWeight] = useState(String(p?.weightKg ?? 80))
   const [sex, setSex] = useState<Sex>(p?.sex ?? 'male')
+  const [showMethods, setShowMethods] = useState(false)
+
+  if (showMethods) return <MethodsInfoModal onClose={() => setShowMethods(false)} />
 
   return (
     <Modal title="Ustawienia" onClose={onClose}>
@@ -749,6 +774,26 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           />
         </label>
 
+        <label className="flex items-center justify-between text-sm rounded-xl bg-card2 border border-line px-4 py-3">
+          <span>
+            Pamięć odroczona (słowa)
+            <span className="block text-xs text-muted">3 słowa do zapamiętania między check-inami</span>
+          </span>
+          <input
+            type="checkbox"
+            className="h-5 w-5 accent-[#34D399]"
+            checked={state.settings.memoRecallEnabled}
+            onChange={(e) => dispatch({ type: 'setSettings', settings: { memoRecallEnabled: e.target.checked } })}
+          />
+        </label>
+
+        <button
+          className="h-11 rounded-xl bg-card2 border border-line text-sm font-medium text-left px-4"
+          onClick={() => setShowMethods(true)}
+        >
+          ℹ️ Jak mierzymy formę — metody, zalety, wady
+        </button>
+
         <p className="text-xs text-muted">
           Powiadomienia lokalne działają, gdy apka jest otwarta lub zainstalowana na ekranie głównym (Android). Na
           iOS dodaj apkę do ekranu głównego — w otwartej apce check-in i tak wyskoczy jako modal.
@@ -796,6 +841,17 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             </label>
           </div>
           <p className="text-[10px] text-muted/70 mt-2">Dane żyją tylko w tej przeglądarce — rób backup przed czyszczeniem.</p>
+          <button
+            className="w-full h-11 mt-3 rounded-xl bg-card2 border border-line text-sm font-medium"
+            onClick={() => {
+              if (confirm('Skasować baseline i zmierzyć od nowa? (zalecane po zmianie mechaniki gier)')) {
+                dispatch({ type: 'setBaseline', baseline: {} })
+                onClose()
+              }
+            }}
+          >
+            🎯 Przelicz baseline od nowa
+          </button>
         </div>
       </div>
     </Modal>

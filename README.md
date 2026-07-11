@@ -53,8 +53,13 @@ npm run icons      # regeneracja ikon PWA
 - **Jednostka** = 10 g czystego etanolu (piwo 500 ml 5% ≈ 2 j., wino 150 ml ≈ 1,4 j., shot 40 ml ≈ 1,3 j.).
 - **Promile**: uproszczony Widmark — gramy/(masa × r), r = 0,68 (M)/0,55 (K), **spalanie 0,15‰/h**
   liczone po osi czasu drinków; UI pokazuje szacowaną godzinę zera ([src/lib/alcohol.ts](src/lib/alcohol.ts), [src/lib/coach.ts](src/lib/coach.ts)).
-- **Baseline**: 3 gry × 3 rundy na trzeźwo (mediana), odświeżanie co ~30 dni.
-- **Check-in co 1h**: powiadomienie/modal → losowa gierka → spowiedź → forma % vs baseline.
+- **Baseline**: 3 gry × 3 rundy na trzeźwo (mediana), odświeżanie co ~30 dni (reset w ustawieniach).
+- **Gry**: Refleks (światła czerwone→zielone, falstart = kara), Koordynacja (ścieżka), Pamięć (Simon).
+  Opis metod z zaletami/wadami: przycisk „ⓘ metody" w apce ([src/components/MethodsInfo.tsx](src/components/MethodsInfo.tsx)).
+- **Check-in co 1h**: powiadomienie/modal → quiz pamięci odroczonej (3 słowa z poprzedniego check-inu,
+  wybór z chipów w kolejności — [src/lib/recall.ts](src/lib/recall.ts)) → losowa gierka → spowiedź → nowe słowa.
+- **Oś czasu sesji** ([src/components/SessionChart.tsx](src/components/SessionChart.tsx)): krzywa ‰ z projekcją
+  spalania, forma % z check-inów, markery 🍺💧.
 - **Questy** ([src/lib/quests.ts](src/lib/quests.ts)): limit jednostek (3/4/6), woda w ryzach, stabilna forma ≥70%,
   spokojne tempo ≤1,5 j./h — wybierane przed sesją, uczciwy werdykt na końcu; do tego challenge „dni bez alkoholu" (7/14/30).
 - **Coach** ([src/lib/coach.ts](src/lib/coach.ts)): konkretne, szczere komentarze wg priorytetu

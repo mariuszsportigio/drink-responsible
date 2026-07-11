@@ -76,7 +76,7 @@ export function MemoryGame({ onFinish }: { onFinish: (value: number) => void }) 
         {phase === 'input' && `Powtórz (${inputIdx}/${seq.length})`}
         {phase === 'idle' && seq.length > 0 && `Poziom zaliczony: ${best.current}`}
       </p>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 select-none" style={{ touchAction: 'none' }}>
         {Array.from({ length: CELLS }, (_, i) => {
           const isLit = lit === i
           const f = flash?.cell === i ? flash : null

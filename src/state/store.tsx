@@ -16,6 +16,7 @@ export type Action =
   | { type: 'removeDrink'; id: string }
   | { type: 'addWater' }
   | { type: 'recordCheckIn'; checkIn: CheckIn }
+  | { type: 'setMemoWords'; words: string[] | undefined }
   | { type: 'commitMit'; text: string }
   | { type: 'completeMit' }
   | { type: 'addHabit'; name: string }
@@ -88,6 +89,10 @@ function reducer(state: AppState, action: Action): AppState {
           checkIns: [...state.activeSession.checkIns, action.checkIn],
         },
       }
+    }
+    case 'setMemoWords': {
+      if (!state.activeSession) return state
+      return { ...state, activeSession: { ...state.activeSession, memoWords: action.words } }
     }
     case 'commitMit': {
       const today = dateStr()

@@ -1,22 +1,10 @@
 import { useMemo } from 'react'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAppState } from '../state/store'
-import { estimatePermille, totalUnits, formatUnits } from '../lib/alcohol'
+import { totalUnits, formatUnits } from '../lib/alcohol'
 import { alcoholFreeDays, questDef } from '../lib/quests'
-import { addDays, dateStr, formatClock, formatDate, formatDuration, streakOf } from '../lib/util'
+import { SessionChart } from '../components/SessionChart'
+import { addDays, dateStr, formatDate, formatDuration, streakOf } from '../lib/util'
 import type { DrinkSession } from '../lib/types'
 
 const TICK = { fill: '#8B9490', fontSize: 11 }
@@ -56,26 +44,6 @@ export function StatsScreen() {
   }, [allSessions])
 
   const lastSession = allSessions[allSessions.length - 1]
-  const formSeries = lastSession?.checkIns.map((c) => ({ t: formatClock(c.ts), forma: c.formPct })) ?? []
-
-  // permille curve of the last session: sampled Widmark estimate + projected burn-down to ~zero
-  const permilleSeries = useMemo(() => {
-    if (!lastSession || !state.profile || lastSession.drinks.length === 0) return []
-    const start = lastSession.startedAt
-    const endAnchor = lastSession.endedAt ?? Date.now()
-    const permilleAtEnd = estimatePermille(lastSession.drinks, state.profile, endAnchor)
-    const end = endAnchor + Math.max(30, (permilleAtEnd / 0.15) * 60 + 15) * 60_000
-    if (end <= start) return []
-    const SAMPLES = 48
-    return Array.from({ length: SAMPLES + 1 }, (_, i) => {
-      const t = start + ((end - start) * i) / SAMPLES
-      return {
-        t: formatClock(t),
-        promile: Math.round(estimatePermille(lastSession.drinks, state.profile!, t) * 100) / 100,
-      }
-    })
-  }, [lastSession, state.profile])
-
   const mitStreak = streakOf(state.mits.filter((m) => m.doneAt).map((m) => m.date))
   const dryDays = alcoholFreeDays(allSessions)
 
@@ -105,51 +73,9 @@ export function StatsScreen() {
         </ResponsiveContainer>
       </Section>
 
-      {permilleSeries.length > 1 && (
-        <Section title={`Promile w czasie — ${lastSession.endedAt ? 'ostatnia sesja' : 'aktywna sesja'}`}>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={permilleSeries} margin={{ top: 5, right: 5, left: -28, bottom: 0 }}>
-              <defs>
-                <linearGradient id="permilleFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#F5A524" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#F5A524" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="#232B27" vertical={false} />
-              <XAxis dataKey="t" tick={TICK} tickLine={false} axisLine={false} interval={Math.floor(permilleSeries.length / 5)} />
-              <YAxis tick={TICK} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}‰`, 'promile']} />
-              <ReferenceLine y={0.5} stroke="#F87171" strokeDasharray="4 4" />
-              <Area
-                type="monotone"
-                dataKey="promile"
-                stroke="#F5A524"
-                strokeWidth={2.5}
-                fill="url(#permilleFill)"
-                dot={false}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-          <p className="text-[10px] text-muted/70 mt-1">
-            czerwona linia: 0,5‰ · ogon za końcem sesji = projekcja spalania · szacunek Widmarka, orientacyjnie
-          </p>
-        </Section>
-      )}
-
-      {formSeries.length > 1 && (
-        <Section title={`Forma w czasie — ${lastSession.endedAt ? 'ostatnia sesja' : 'aktywna sesja'}`}>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={formSeries} margin={{ top: 5, right: 5, left: -28, bottom: 0 }}>
-              <CartesianGrid stroke="#232B27" vertical={false} />
-              <XAxis dataKey="t" tick={TICK} tickLine={false} axisLine={false} />
-              <YAxis domain={[0, 125]} tick={TICK} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <ReferenceLine y={100} stroke="#34D399" strokeDasharray="4 4" />
-              <ReferenceLine y={70} stroke="#F87171" strokeDasharray="4 4" />
-              <Line type="monotone" dataKey="forma" stroke="#F5A524" strokeWidth={2.5} dot={{ fill: '#F5A524', r: 4 }} isAnimationActive={false} />
-            </LineChart>
-          </ResponsiveContainer>
+      {lastSession && state.profile && lastSession.drinks.length > 0 && (
+        <Section title={`Oś czasu — ${lastSession.endedAt ? 'ostatnia sesja' : 'aktywna sesja'}`}>
+          <SessionChart session={lastSession} profile={state.profile} />
         </Section>
       )}
 

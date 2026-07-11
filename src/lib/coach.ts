@@ -6,6 +6,10 @@ export interface CoachCtx {
   hours: number
   deficit: number
   lastForm?: number
+  /** units added in the last ~20 minutes — a fresh batch that hasn't "landed" yet */
+  recentUnits?: number
+  /** last delayed-recall score */
+  recall?: { correct: number; total: number }
 }
 
 /** Estimated time until ~0.00‰ at the fixed Widmark burn rate. */
@@ -30,7 +34,7 @@ function pick(variants: string[], seed: number): string {
  * Rules ordered by severity; never says "you can drink more".
  */
 export function coachLine(ctx: CoachCtx): string {
-  const { units, permille, hours, deficit, lastForm } = ctx
+  const { units, permille, hours, deficit, lastForm, recentUnits = 0, recall } = ctx
   const seed = Math.floor(hours * 2) + Math.round(units * 10)
   const p = permille.toLocaleString('pl-PL', { maximumFractionDigits: 2 })
   const tempo = hours >= 0.75 ? units / hours : 0
@@ -40,6 +44,24 @@ export function coachLine(ctx: CoachCtx): string {
       [
         `${p}‰ — to już nie „luz", to zjazd. Koniec dolewek, woda i coś do jedzenia.`,
         `Jedziesz na grubo (${p}‰). Nic mądrego dziś już z tego nie będzie — hamuj.`,
+      ],
+      seed,
+    )
+  }
+  if (recentUnits >= 1.5 && permille >= 0.4) {
+    return pick(
+      [
+        `🔥 To, co właśnie wpadło (${recentUnits.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} j.), dopiero wjeżdża. Za ~15 min może być niebezpiecznie 💀 — nic już nie zamawiaj.`,
+        `⚠️ Duża dostawa w krótkim czasie. Poziom zaraz skoczy — przeczekaj z wodą zanim ocenisz, „czy czujesz".`,
+      ],
+      seed,
+    )
+  }
+  if (recall && recall.correct <= 1 && recall.total >= 3) {
+    return pick(
+      [
+        `Pamięć ${recall.correct}/${recall.total}. Właśnie wchodzisz w strefę opowiadania tej samej historii trzeci raz. 😅`,
+        `Słowa uciekły (${recall.correct}/${recall.total}). Jutro nie będziesz pamiętał połowy — może to znak, żeby zwolnić.`,
       ],
       seed,
     )
@@ -71,6 +93,16 @@ export function coachLine(ctx: CoachCtx): string {
       seed,
     )
   }
+  if (permille >= 1.0) {
+    return pick(
+      [
+        `${p}‰ — oficjalnie strefa gadania głupot. 🗣️ Obserwuj się, bo Ty tego nie zauważysz pierwszy.`,
+        `Ponad promil (${p}‰). To ten moment, kiedy „mam świetny pomysł" i „zaraz mu powiem prawdę" brzmią przekonująco. Nie są.`,
+        `${p}‰ na liczniku — ryzyko wkurzania ludzi rośnie wykładniczo. Więcej słuchaj, mniej nadawaj. 😉`,
+      ],
+      seed,
+    )
+  }
   if (permille >= 0.8) {
     return pick(
       [
@@ -83,8 +115,9 @@ export function coachLine(ctx: CoachCtx): string {
   if (units > 0) {
     return pick(
       [
-        `Kontrola jest: ${units.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} j., forma trzyma. Tak wygląda picie po dorosłemu.`,
+        `Kontrola jest: ${units.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} j., forma trzyma. Tak wygląda picie po dorosłemu. 👏`,
         `Spokojny przebieg. Utrzymaj wodę i tempo, a jutro wstaniesz jak człowiek.`,
+        `Ładnie się trzymasz — brawo! 🏆 Tempo w normie, licznik pod kontrolą.`,
       ],
       seed,
     )

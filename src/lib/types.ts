@@ -36,6 +36,8 @@ export interface CheckIn {
   kind: GameKind
   value: number
   formPct: number
+  /** delayed-recall quiz result (words remembered from the previous check-in) */
+  recall?: { correct: number; total: number }
 }
 
 export type QuestId = 'maxUnits' | 'waterDiscipline' | 'formAbove70' | 'slowPace'
@@ -55,6 +57,8 @@ export interface DrinkSession {
   water: WaterEntry[]
   checkIns: CheckIn[]
   quests?: SessionQuest[]
+  /** words to recall at the next check-in */
+  memoWords?: string[]
 }
 
 export interface Mit {
@@ -73,6 +77,8 @@ export interface Habit {
 export interface Settings {
   checkInMinutes: number
   notificationsEnabled: boolean
+  /** delayed-recall word quiz during check-ins */
+  memoRecallEnabled: boolean
 }
 
 export interface AppState {
@@ -92,5 +98,5 @@ export const initialState: AppState = {
   pastSessions: [],
   mits: [],
   habits: [],
-  settings: { checkInMinutes: 60, notificationsEnabled: false },
+  settings: { checkInMinutes: 60, notificationsEnabled: false, memoRecallEnabled: true },
 }

@@ -1,110 +1,131 @@
 import { useEffect, useRef, useState } from 'react'
 
 const ROUNDS = 5
-const MISS_PENALTY_MS = 50
+const FALSTART_PENALTY_MS = 60
 
-/** Tap appearing circles; value = avg reaction time in ms + penalty per miss (lower = better). */
+type Phase = 'idle' | 'red' | 'green' | 'feedback' | 'done'
+
+/**
+ * Red light / green light reaction test — the whole tall arena is the button.
+ * Tap on green as fast as you can; tapping on red = false start (time penalty).
+ * value = avg reaction ms + penalty per false start (lower = better).
+ */
 export function ReflexGame({ onFinish }: { onFinish: (value: number) => void }) {
-  const [phase, setPhase] = useState<'idle' | 'countdown' | 'wait' | 'target'>('idle')
-  const [count, setCount] = useState(3)
-  const [times, setTimes] = useState<number[]>([])
-  const [errors, setErrors] = useState(0)
-  const [pos, setPos] = useState({ x: 50, y: 50 })
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [flash, setFlash] = useState<{ ms?: number; falstart?: boolean } | null>(null)
+  const [, forceRender] = useState(0)
+  const times = useRef<number[]>([])
+  const falstarts = useRef(0)
   const shownAt = useRef(0)
   const timer = useRef<number | undefined>(undefined)
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
-  function startCountdown() {
-    setPhase('countdown')
-    setCount(3)
-    const tick = (n: number) => {
-      if (n === 0) {
-        scheduleTarget()
-        return
-      }
-      setCount(n)
-      timer.current = window.setTimeout(() => tick(n - 1), 650)
-    }
-    tick(3)
-  }
-
-  function scheduleTarget() {
-    setPhase('wait')
+  function startRound() {
+    setFlash(null)
+    setPhase('red')
     timer.current = window.setTimeout(() => {
-      setPos({ x: 15 + Math.random() * 70, y: 15 + Math.random() * 70 })
       shownAt.current = performance.now()
-      setPhase('target')
-    }, 600 + Math.random() * 1400)
+      setPhase('green')
+    }, 900 + Math.random() * 1900)
   }
 
-  function hitTarget(e: React.PointerEvent) {
-    e.stopPropagation()
-    const rt = performance.now() - shownAt.current
-    const next = [...times, rt]
-    setTimes(next)
-    if (next.length >= ROUNDS) {
-      const avg = next.reduce((a, b) => a + b, 0) / next.length
-      onFinish(Math.round(avg + errors * MISS_PENALTY_MS))
-    } else {
-      scheduleTarget()
+  function finish() {
+    setPhase('done')
+    const avg = times.current.reduce((a, b) => a + b, 0) / times.current.length
+    timer.current = window.setTimeout(
+      () => onFinish(Math.round(avg + falstarts.current * FALSTART_PENALTY_MS)),
+      900,
+    )
+  }
+
+  function tap() {
+    if (phase === 'idle') {
+      startRound()
+      return
     }
-  }
-
-  function arenaTap() {
-    if (phase === 'wait') {
-      // false start — restart the round
+    if (phase === 'red') {
       window.clearTimeout(timer.current)
-      setErrors((e) => e + 1)
-      scheduleTarget()
-    } else if (phase === 'target') {
-      setErrors((e) => e + 1)
+      falstarts.current++
+      forceRender((n) => n + 1)
+      setFlash({ falstart: true })
+      setPhase('feedback')
+      timer.current = window.setTimeout(startRound, 1000)
+      return
+    }
+    if (phase === 'green') {
+      const rt = performance.now() - shownAt.current
+      times.current.push(rt)
+      setFlash({ ms: Math.round(rt) })
+      if (times.current.length >= ROUNDS) {
+        finish()
+      } else {
+        setPhase('feedback')
+        timer.current = window.setTimeout(startRound, 850)
+      }
     }
   }
+
+  const roundNo = Math.min(times.current.length + 1, ROUNDS)
+  const msColor = flash?.ms == null ? '' : flash.ms < 300 ? 'text-mint' : flash.ms < 450 ? 'text-accent' : 'text-danger'
+
+  const arena =
+    phase === 'red'
+      ? 'bg-[#3A1418] border-danger/40'
+      : phase === 'green'
+        ? 'bg-[#0E3B24] border-mint/50'
+        : 'bg-card2 border-line'
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-between text-sm text-muted">
-        <span>Runda {Math.min(times.length + 1, ROUNDS)}/{ROUNDS}</span>
-        <span>Pomyłki: {errors}</span>
+        <span>Runda {roundNo}/{ROUNDS}</span>
+        <span>Falstarty: {falstarts.current}</span>
       </div>
-      <div
-        className="relative h-[380px] rounded-2xl bg-card2 border border-line overflow-hidden select-none"
-        onPointerDown={arenaTap}
+      <button
+        aria-label="arena refleksu"
+        className={`relative h-[62dvh] min-h-[380px] w-full rounded-3xl border select-none transition-colors duration-100 ${arena}`}
+        style={{ touchAction: 'none' }}
+        onPointerDown={tap}
       >
         {phase === 'idle' && (
-          <button
-            className="absolute inset-0 m-auto h-14 w-40 rounded-full bg-accent text-black font-bold"
-            onPointerDown={(e) => {
-              e.stopPropagation()
-              startCountdown()
-            }}
-          >
-            Start
-          </button>
+          <span className="flex flex-col items-center gap-2">
+            <span className="text-4xl">🚦</span>
+            <span className="font-bold text-lg">Tapnij, żeby zacząć</span>
+            <span className="text-xs text-muted px-8">
+              Czerwone = czekaj. Zielone = TAP natychmiast. Falstart to −{FALSTART_PENALTY_MS} ms kary.
+            </span>
+          </span>
         )}
-        {phase === 'countdown' && (
-          <p key={count} className="screen-in absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-6xl font-extrabold text-accent">
-            {count}
-          </p>
+        {phase === 'red' && (
+          <span className="flex flex-col items-center gap-3">
+            <span className="text-6xl">🔴</span>
+            <span className="font-bold text-lg tracking-widest text-danger">CZEKAJ…</span>
+          </span>
         )}
-        {phase === 'wait' && (
-          <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-muted">Czekaj…</p>
+        {phase === 'green' && (
+          <span className="flex flex-col items-center gap-3 screen-in">
+            <span className="text-7xl">🟢</span>
+            <span className="font-extrabold text-3xl tracking-widest text-mint">TAP!</span>
+          </span>
         )}
-        {phase === 'target' && (
-          <button
-            aria-label="cel"
-            className="absolute h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full bg-mint shadow-[0_0_24px_rgba(52,211,153,0.6)]"
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-            onPointerDown={hitTarget}
-          />
+        {(phase === 'feedback' || phase === 'done') && flash && (
+          <span className="flex flex-col items-center gap-2 screen-in">
+            {flash.falstart ? (
+              <>
+                <span className="text-5xl">😅</span>
+                <span className="font-extrabold text-2xl text-danger">FALSTART</span>
+                <span className="text-sm text-muted">−{FALSTART_PENALTY_MS} ms kary · czekaj na zielone</span>
+              </>
+            ) : (
+              <>
+                <span className={`font-extrabold text-6xl tabular-nums ${msColor}`}>{flash.ms}</span>
+                <span className="text-sm text-muted">ms{phase === 'done' ? ' · koniec!' : ''}</span>
+              </>
+            )}
+          </span>
         )}
-      </div>
-      {times.length > 0 && (
-        <p className="text-center text-sm text-muted">
-          Ostatni: <span className="text-white">{Math.round(times[times.length - 1])} ms</span>
-        </p>
-      )}
+      </button>
     </div>
   )
 }
