@@ -12,7 +12,9 @@ import { formatRecallScore } from '../lib/recall'
 import { AddDrinkSheet, type AddSheetKind } from '../components/AddDrinkSheet'
 import {
   Activity,
+  BarChart3,
   Check,
+  ChevronDown,
   Compass,
   Download,
   Droplets,
@@ -29,6 +31,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+import { requestCheckIn } from '../lib/checkinBus'
 import { GameHost, type GameResult } from '../games/GameHost'
 import { Cockpit } from '../components/Cockpit'
 import { Modal } from '../components/Modal'
@@ -63,6 +66,7 @@ export function DrinkScreen() {
   const [showQuestPick, setShowQuestPick] = useState(false)
   const [showEndSummary, setShowEndSummary] = useState(false)
   const [showMethods, setShowMethods] = useState(false)
+  const [showStats, setShowStats] = useState(false)
   const [practice, setPractice] = useState<GameResult | null>(null)
   const [toast, setToast] = useState<{ msg: string; undoId?: string } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -147,7 +151,7 @@ export function DrinkScreen() {
         </button>
       </header>
 
-      {hasProfile && (session || recentPermille > 0.005) && <SobrietyBar permille={recentPermille} />}
+      {hasProfile && !session && recentPermille > 0.005 && <SobrietyBar permille={recentPermille} />}
 
       {!hasProfile && <ProfileCard />}
 
@@ -169,11 +173,12 @@ export function DrinkScreen() {
       )}
 
       {session ? (
-        <section className="rounded-3xl border border-mint/25 bg-gradient-to-b from-[#12251C] to-card p-5 mb-5">
-          <div className="flex items-center justify-between mb-4">
+        <>
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-mint pulse-dot" />
               <span className="text-xs font-bold tracking-widest">SESJA AKTYWNA</span>
+              <span className="text-xs text-muted tabular-nums">· {formatDuration(now - session.startedAt)}</span>
             </div>
             <button
               className="rounded-full bg-card2 border border-line px-4 py-1.5 text-sm"
@@ -183,85 +188,8 @@ export function DrinkScreen() {
             </button>
           </div>
 
-          <Cockpit index={pIndex} permille={permille} form={lastCheck?.formPct} units={units} />
-
-          <div className="grid grid-cols-4 gap-2 mt-4 text-center">
-            <div className="rounded-xl bg-black/25 border border-line py-2">
-              <p className="text-base font-extrabold leading-tight">{formatUnits(units)}</p>
-              <p className="text-[10px] text-muted">jednostek</p>
-            </div>
-            <div className="rounded-xl bg-black/25 border border-line py-2">
-              <p className="text-base font-extrabold leading-tight">{formatDuration(now - session.startedAt)}</p>
-              <p className="text-[10px] text-muted">czas</p>
-            </div>
-            <div className="rounded-xl bg-black/25 border border-line py-2">
-              <p className="text-base font-extrabold leading-tight text-aqua">{session.water.length}</p>
-              <p className="text-[10px] text-muted">woda</p>
-            </div>
-            <div className="rounded-xl bg-black/25 border border-line py-2">
-              <p className="text-base font-extrabold leading-tight text-accent">{kcalOfUnits(units)}</p>
-              <p className="text-[10px] text-muted">kcal*</p>
-            </div>
-          </div>
-
-          {permille >= 0.01 && (
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
-              <Flame size={13} className="text-accent" /> spalanie ~0,15‰/h · zero{' '}
-              <span className="text-white/80">{formatEta(permille)}</span>
-            </p>
-          )}
-
-          {liveQuests.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {liveQuests.map((q) => {
-                const def = questDef(q.id)
-                const QIcon = QUEST_ICONS[q.id]
-                return (
-                  <span
-                    key={q.id}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                      q.done ? 'bg-[#12251C] border-mint/40 text-mint' : 'bg-[#2A1A12] border-danger/40 text-[#F5C6C6]'
-                    }`}
-                  >
-                    <QIcon size={13} /> {def.title(q.target)} · {def.progress(session, q.target, now)}
-                  </span>
-                )
-              })}
-            </div>
-          )}
-
-          {(() => {
-            const line = coachLine({
-              index: pIndex,
-              units,
-              permille,
-              deficit,
-              kcal: kcalOfUnits(units),
-              strongRecentUnits: idxInput?.strongRecentUnits ?? 0,
-              fedRecently: idxInput?.fedRecently ?? true,
-              recall: lastCheck?.recall,
-            })
-            return (
-              <div key={line} className="screen-in mt-4 flex gap-2.5 rounded-2xl bg-black/25 border border-line px-4 py-3 text-sm text-white/85 leading-relaxed">
-                <Compass size={16} className="mt-0.5 shrink-0 text-muted" />
-                <span>{line}</span>
-              </div>
-            )
-          })()}
-
-          {deficit > 0 && (
-            <div className="mt-3 flex items-center gap-2.5 rounded-2xl bg-[#3A3213] border border-accent/30 px-4 py-3 text-sm text-[#F3E3B0]">
-              <Droplets size={16} className="shrink-0 text-aqua" />
-              <span>Stosunek alkohol:woda się psuje — dolej {deficit > 1 ? `${deficit} szklanki` : 'szklankę'} wody.</span>
-            </div>
-          )}
-          {lastCheck && lastCheck.formPct < 70 && (
-            <div className="mt-3 flex items-center gap-2.5 rounded-2xl bg-[#3A1A1A] border border-danger/30 px-4 py-3 text-sm text-[#F5C6C6]">
-              <TrendingDown size={16} className="shrink-0 text-danger" />
-              <span>Forma poniżej 70% normy. Woda, wolniejsze tempo, żadnych ważnych decyzji.</span>
-            </div>
-          )}
-        </section>
+          <ChallengeHero session={session} quests={liveQuests} now={now} checkInMinutes={state.settings.checkInMinutes} />
+        </>
       ) : (
         <section className="rounded-3xl bg-card border border-line p-5 mb-5">
           <h2 className="font-bold mb-1">Brak aktywnej sesji</h2>
@@ -287,90 +215,158 @@ export function DrinkScreen() {
 
       {session && (
         <>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-2">Dodaj</p>
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-muted mb-2">Dodaj szybko</p>
+          <div className="grid grid-cols-5 gap-2 mb-2">
             {QUICK_DRINKS.map((d) => (
               <button
                 key={`${d.label}-${d.volumeMl}`}
-                className="flex items-center gap-3 rounded-2xl bg-card border border-line p-4 text-left active:bg-card2"
+                aria-label={`${d.label} ${d.volumeMl} ml`}
+                className="flex h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-line active:bg-card2"
                 onClick={() =>
                   d.abv >= 30
                     ? setAddSheet({ kind: 'shot' })
                     : setAddSheet({ kind: 'spread', label: d.label, volumeMl: d.volumeMl, abv: d.abv, icon: d.icon })
                 }
               >
-                <span className="text-2xl">{d.icon}</span>
-                <span className="flex-1">
-                  <span className="block font-bold text-sm">{d.label}</span>
-                  <span className="block text-xs text-muted">
-                    {d.volumeMl} ml · {formatUnits(unitsOf(d.volumeMl, d.abv))} j.
-                  </span>
-                </span>
-                <Plus size={16} className="text-muted" />
+                <span className="text-xl leading-none">{d.icon}</span>
+                <span className="text-[10px] text-muted leading-none">{d.volumeMl} ml</span>
               </button>
             ))}
             <button
-              className="flex items-center gap-3 rounded-2xl bg-card border border-line p-4 text-left active:bg-card2"
+              aria-label="drink mieszany"
+              className="flex h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-line active:bg-card2"
               onClick={() => setAddSheet({ kind: 'mixed' })}
             >
-              <span className="text-2xl">🍹</span>
-              <span className="flex-1">
-                <span className="block font-bold text-sm">Drink</span>
-                <span className="block text-xs text-muted">słaby / średni / mocny</span>
-              </span>
-              <Plus size={16} className="text-muted" />
-            </button>
-            <button
-              className="flex items-center gap-3 rounded-2xl bg-card border border-line p-4 text-left active:bg-card2"
-              onClick={() => setShowCustom(true)}
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-line text-muted">
-                <Plus size={16} />
-              </span>
-              <span className="flex-1">
-                <span className="block font-bold text-sm">Własny</span>
-                <span className="block text-xs text-muted">ml + % ręcznie</span>
-              </span>
+              <span className="text-xl leading-none">🍹</span>
+              <span className="text-[10px] text-muted leading-none">drink</span>
             </button>
           </div>
-          <div className="mb-3">
+          <div className="grid grid-cols-4 gap-2 mb-3">
             <button
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#0E2733] border border-aqua/40 text-aqua font-bold"
+              aria-label="szklanka wody"
+              className="flex h-14 flex-col items-center justify-center gap-1 rounded-2xl bg-[#0E2733] border border-aqua/40 active:opacity-80"
               onClick={() => {
                 dispatch({ type: 'addWater' })
                 haptic()
                 showToast('💧 Szklanka wody dopisana')
               }}
             >
-              <Droplets size={17} /> Szklanka wody
+              <span className="text-lg leading-none">💧</span>
+              <span className="text-[10px] text-aqua font-bold leading-none">woda</span>
             </button>
-          </div>
-          <div className="grid grid-cols-2 gap-3 mb-6">
             <button
-              className="h-12 rounded-2xl bg-card border border-line text-sm font-medium"
+              aria-label="przekąska"
+              className="flex h-14 flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-line active:bg-card2"
               onClick={() => {
                 dispatch({ type: 'addFood', kind: 'snack' })
                 haptic()
                 showToast('🥜 Przekąska zapisana')
               }}
             >
-              🥜 Przekąska
+              <span className="text-lg leading-none">🥜</span>
+              <span className="text-[10px] text-muted leading-none">przekąska</span>
             </button>
             <button
-              className="h-12 rounded-2xl bg-[#26200E] border border-accent/40 text-sm font-bold"
+              aria-label="posiłek"
+              className="flex h-14 flex-col items-center justify-center gap-1 rounded-2xl bg-[#26200E] border border-accent/40 active:opacity-80"
               onClick={() => {
                 dispatch({ type: 'addFood', kind: 'meal' })
                 haptic()
                 showToast('🍔 Porządne jedzenie — index to doceni')
               }}
             >
-              🍔 Zjadłem posiłek
+              <span className="text-lg leading-none">🍔</span>
+              <span className="text-[10px] text-accent font-bold leading-none">posiłek</span>
+            </button>
+            <button
+              aria-label="własny drink"
+              className="flex h-14 flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-line active:bg-card2"
+              onClick={() => setShowCustom(true)}
+            >
+              <Plus size={17} className="text-muted" />
+              <span className="text-[10px] text-muted leading-none">własny</span>
             </button>
           </div>
+
+          {deficit > 0 && (
+            <div className="mb-3 flex items-center gap-2.5 rounded-2xl bg-[#3A3213] border border-accent/30 px-4 py-3 text-sm text-[#F3E3B0]">
+              <Droplets size={16} className="shrink-0 text-aqua" />
+              <span>Stosunek alkohol:woda się psuje — dolej {deficit > 1 ? `${deficit} szklanki` : 'szklankę'} wody.</span>
+            </div>
+          )}
+          {lastCheck && lastCheck.formPct < 70 && (
+            <div className="mb-3 flex items-center gap-2.5 rounded-2xl bg-[#3A1A1A] border border-danger/30 px-4 py-3 text-sm text-[#F5C6C6]">
+              <TrendingDown size={16} className="shrink-0 text-danger" />
+              <span>Forma poniżej 70% normy. Woda, wolniejsze tempo, żadnych ważnych decyzji.</span>
+            </div>
+          )}
+
+          <button
+            className="mb-4 flex w-full items-center gap-2.5 rounded-2xl bg-card border border-line px-4 py-3"
+            onClick={() => setShowStats((s) => !s)}
+          >
+            <BarChart3 size={16} className="text-muted shrink-0" />
+            <span className="flex-1 text-left text-sm font-medium">Staty sesji</span>
+            <span className="text-xs text-muted tabular-nums">
+              {formatUnits(units)} j. · {formatPermille(permille)} · idx {pIndex}
+            </span>
+            <ChevronDown size={16} className={`text-muted shrink-0 transition-transform ${showStats ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showStats && (
+            <section className="screen-in rounded-3xl border border-line bg-card p-5 mb-5">
+              <Cockpit index={pIndex} permille={permille} form={lastCheck?.formPct} units={units} />
+
+              <div className="grid grid-cols-4 gap-2 mt-4 text-center">
+                <div className="rounded-xl bg-black/25 border border-line py-2">
+                  <p className="text-base font-extrabold leading-tight">{formatUnits(units)}</p>
+                  <p className="text-[10px] text-muted">jednostek</p>
+                </div>
+                <div className="rounded-xl bg-black/25 border border-line py-2">
+                  <p className="text-base font-extrabold leading-tight">{formatDuration(now - session.startedAt)}</p>
+                  <p className="text-[10px] text-muted">czas</p>
+                </div>
+                <div className="rounded-xl bg-black/25 border border-line py-2">
+                  <p className="text-base font-extrabold leading-tight text-aqua">{session.water.length}</p>
+                  <p className="text-[10px] text-muted">woda</p>
+                </div>
+                <div className="rounded-xl bg-black/25 border border-line py-2">
+                  <p className="text-base font-extrabold leading-tight text-accent">{kcalOfUnits(units)}</p>
+                  <p className="text-[10px] text-muted">kcal*</p>
+                </div>
+              </div>
+
+              {permille >= 0.01 && (
+                <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
+                  <Flame size={13} className="text-accent" /> spalanie ~0,15‰/h · zero{' '}
+                  <span className="text-white/80">{formatEta(permille)}</span>
+                </p>
+              )}
+
+              {(() => {
+                const line = coachLine({
+                  index: pIndex,
+                  units,
+                  permille,
+                  deficit,
+                  kcal: kcalOfUnits(units),
+                  strongRecentUnits: idxInput?.strongRecentUnits ?? 0,
+                  fedRecently: idxInput?.fedRecently ?? true,
+                  recall: lastCheck?.recall,
+                })
+                return (
+                  <div key={line} className="screen-in mt-4 flex gap-2.5 rounded-2xl bg-black/25 border border-line px-4 py-3 text-sm text-white/85 leading-relaxed">
+                    <Compass size={16} className="mt-0.5 shrink-0 text-muted" />
+                    <span>{line}</span>
+                  </div>
+                )
+              })()}
+            </section>
+          )}
         </>
       )}
 
-      {hasBaseline && (
+      {hasBaseline && (!session || showStats) && (
         <>
           <div className="flex items-baseline justify-between mb-2">
             <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted">
@@ -421,7 +417,7 @@ export function DrinkScreen() {
         </>
       )}
 
-      {session && <SessionTimeline session={session} now={now} />}
+      {session && showStats && <SessionTimeline session={session} now={now} />}
 
       <p className="text-[11px] leading-relaxed text-muted/80 border border-line rounded-2xl p-4">
         * Szacunek promili (uproszczony model Widmarka), Party Index oraz wyniki gier są wyłącznie orientacyjne. NIE
@@ -474,6 +470,111 @@ export function DrinkScreen() {
           document.body,
         )}
     </div>
+  )
+}
+
+/**
+ * The one thing a drunk user must not miss: a half-screen challenge card.
+ * Quests in big rows + check-in countdown + one giant button that launches
+ * the full check-in flow (recall → game → confession) in a single tap.
+ */
+function ChallengeHero({
+  session,
+  quests,
+  now,
+  checkInMinutes,
+}: {
+  session: DrinkSession
+  quests: SessionQuest[]
+  now: number
+  checkInMinutes: number
+}) {
+  const lastTs = session.checkIns[session.checkIns.length - 1]?.ts ?? session.startedAt
+  const nextAt = lastTs + checkInMinutes * 60_000
+  const due = now >= nextAt
+  const minLeft = Math.max(1, Math.ceil((nextAt - now) / 60_000))
+  const overdueMin = Math.floor((now - nextAt) / 60_000)
+  const done = quests.filter((q) => q.done).length
+
+  return (
+    <section
+      className={`mb-4 flex min-h-[46vh] flex-col rounded-3xl border p-5 card-shadow ${
+        due
+          ? 'challenge-pulse border-accent/70 bg-gradient-to-b from-[#33270D] to-card'
+          : 'border-mint/30 bg-gradient-to-b from-[#12251C] to-card'
+      }`}
+    >
+      <div className="mb-3 flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-accent">
+          <Target size={13} /> Challenge
+        </p>
+        {quests.length > 0 && (
+          <span className={`text-[11px] font-bold ${done === quests.length ? 'text-mint' : 'text-muted'}`}>
+            {done}/{quests.length} zaliczone
+          </span>
+        )}
+      </div>
+
+      {quests.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {quests.map((q) => {
+            const def = questDef(q.id)
+            const QIcon = QUEST_ICONS[q.id]
+            return (
+              <div
+                key={q.id}
+                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${
+                  q.done ? 'bg-[#12251C] border-mint/40' : 'bg-black/25 border-line'
+                }`}
+              >
+                <QIcon size={18} className={`shrink-0 ${q.done ? 'text-mint' : 'text-accent'}`} />
+                <span className="flex-1 text-sm font-bold">{def.title(q.target)}</span>
+                {q.done ? (
+                  <Check size={18} className="shrink-0 text-mint" />
+                ) : (
+                  <span className="shrink-0 text-sm font-extrabold tabular-nums text-accent">
+                    {def.progress(session, q.target, now)}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-muted">Bez questów w tej sesji — ale check-iny formy obowiązują.</p>
+      )}
+
+      <div className="flex-1" />
+
+      <div className="my-4 text-center">
+        {due ? (
+          <>
+            <p className="text-2xl font-extrabold text-accent">CHECK-IN CZEKA!</p>
+            <p className="mt-1 text-sm text-muted">
+              {overdueMin >= 1 ? `zalega od ${overdueMin} min` : 'właśnie wybił czas'} · gierka + spowiedź, ~1 min
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted">następny check-in formy</p>
+            <p className="text-3xl font-extrabold tabular-nums">za {minLeft} min</p>
+          </>
+        )}
+      </div>
+
+      <button
+        className={`inline-flex h-16 w-full items-center justify-center gap-2 rounded-2xl text-lg font-extrabold text-black ${
+          due ? 'bg-accent' : 'bg-mint'
+        }`}
+        onClick={() => {
+          haptic([10, 30, 10])
+          requestCheckIn()
+        }}
+      >
+        <Play size={20} fill="currentColor" /> {due ? 'ZRÓB CHECK-IN TERAZ' : 'Zrób check-in teraz'}
+      </button>
+      <p className="mt-2 text-center text-[11px] text-muted">1 tap — pamięć, gierka i spowiedź w jednym.</p>
+    </section>
   )
 }
 

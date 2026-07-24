@@ -5,6 +5,7 @@ import { baselineComplete, formPct, randomGame, GAME_META } from '../lib/games'
 import type { GameKind } from '../lib/types'
 import { QUICK_DRINKS, formatUnits, totalUnits, unitsOf } from '../lib/alcohol'
 import { buildRecallChips, formatRecallScore, gradeRecall, gradeRecallSlots, pickMemoWords, recallComment } from '../lib/recall'
+import { onCheckInRequest } from '../lib/checkinBus'
 import { notify } from '../lib/notify'
 import { haptic, uid } from '../lib/util'
 import { AlarmClock, Beer, Brain, Check, ChevronDown, Droplets, Plus, Utensils } from 'lucide-react'
@@ -54,6 +55,19 @@ export function CheckInManager() {
     const t = window.setTimeout(fire, delay)
     return () => window.clearTimeout(t)
   }, [ready, lastTs, state.settings.checkInMinutes, session?.id])
+
+  // One-tap challenge from the hero card: jump straight into the flow, no prompt.
+  useEffect(() => {
+    if (!ready) return
+    return onCheckInRequest(() => {
+      window.clearTimeout(snoozeTimer.current)
+      setKind(randomGame())
+      setGameValue(null)
+      setRecallResult(null)
+      setPhase(recallOn && (session?.memoWords?.length ?? 0) > 0 ? 'recall' : 'game')
+      setDue(true)
+    })
+  }, [ready, recallOn, session?.memoWords])
 
   useEffect(() => () => window.clearTimeout(snoozeTimer.current), [])
 
